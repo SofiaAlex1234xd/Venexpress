@@ -1092,17 +1092,13 @@ export class TransactionsService {
       return copValue - (bsValue * rate);
     }).reduce((sum, earning) => sum + earning, 0);
 
-    // Ganancias del vendedor (2% del monto COP) SOLO para transacciones completadas con tasa de compra establecida
-    const completedWithPurchaseRate = completedTransactions.filter(
-      t => t.isPurchaseRateSet && t.purchaseRate != null,
-    );
-
-    const vendorEarningsTotal = completedWithPurchaseRate.reduce((sum, t) => {
+    // Ganancias del vendedor (2% del monto COP) para TODAS las transacciones completadas
+    const vendorEarningsTotal = completedTransactions.reduce((sum, t) => {
       const copValue = parseFloat(t.amountCOP.toString());
       return sum + copValue * 0.02;
     }, 0);
 
-    const vendorEarningsPaid = completedWithPurchaseRate
+    const vendorEarningsPaid = completedTransactions
       .filter(t => t.isCommissionPaidToVendor)
       .reduce((sum, t) => {
         const copValue = parseFloat(t.amountCOP.toString());
