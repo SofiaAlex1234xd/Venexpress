@@ -1213,11 +1213,13 @@ export class TransactionsService {
 
     // Filter by date range
     if (startDate) {
-      queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: new Date(startDate) });
+      // Forzar inicio del día
+      const start = new Date(`${startDate}T00:00:00`);
+      queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: start });
     }
     if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      // Forzar final del día
+      const end = new Date(`${endDate}T23:59:59.999`);
       queryBuilder.andWhere('transaction.createdAt <= :endDate', { endDate: end });
     }
 
@@ -1436,10 +1438,10 @@ export class TransactionsService {
     if (setPurchaseRateDto.date) {
       const startDate = new Date(setPurchaseRateDto.date);
       startDate.setHours(0, 0, 0, 0);
-      
+
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 1);
-      
+
       query = query.andWhere(
         'transaction.createdAt >= :startDate AND transaction.createdAt < :endDate',
         { startDate, endDate },
