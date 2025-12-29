@@ -1038,7 +1038,7 @@ export class TransactionsService {
 
     // Construir filtros base
     const whereConditions: any = {
-      createdBy: { id: user.userId },
+      createdBy: { id: user.id },
     };
 
     // Aplicar filtros de fecha si existen
