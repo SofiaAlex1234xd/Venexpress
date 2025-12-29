@@ -838,7 +838,6 @@ export class TransactionsService {
       where: {
         id: In(transactionIds),
         status: TransactionStatus.COMPLETADO,
-        isPurchaseRateSet: true,
       },
     });
 
