@@ -866,11 +866,10 @@ export class TransactionsService {
     let dateTo = new Date();
 
     if (startDate) {
-      dateFrom = new Date(startDate);
+      dateFrom = new Date(`${startDate}T00:00:00`);
     }
     if (endDate) {
-      dateTo = new Date(endDate);
-      dateTo.setHours(23, 59, 59, 999);
+      dateTo = new Date(`${endDate}T23:59:59.999`);
     }
 
     const transactions = await this.transactionsRepository.find({
@@ -1230,10 +1229,9 @@ export class TransactionsService {
     dateFrom.setDate(dateFrom.getDate() - 30); // Default: last 30 days
     let dateTo = new Date();
 
-    if (startDate) dateFrom = new Date(startDate);
+    if (startDate) dateFrom = new Date(`${startDate}T00:00:00`);
     if (endDate) {
-      dateTo = new Date(endDate);
-      dateTo.setHours(23, 59, 59, 999);
+      dateTo = new Date(`${endDate}T23:59:59.999`);
     }
 
     // Build query
@@ -1342,10 +1340,9 @@ export class TransactionsService {
     dateFrom.setDate(dateFrom.getDate() - 30);
     let dateTo = new Date();
 
-    if (startDate) dateFrom = new Date(startDate);
+    if (startDate) dateFrom = new Date(`${startDate}T00:00:00`);
     if (endDate) {
-      dateTo = new Date(endDate);
-      dateTo.setHours(23, 59, 59, 999);
+      dateTo = new Date(`${endDate}T23:59:59.999`);
     }
 
     // Build query
