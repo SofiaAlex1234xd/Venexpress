@@ -21,7 +21,17 @@ import { VenezuelaDebtSummary, TransactionDebtDetail, VenezuelaPaymentDetail } f
  * Evita problemas de interpretación UTC
  */
 function parseLocalDate(dateString: string): Date {
-  const [year, month, day] = dateString.split('-').map(Number);
+  if (!dateString || typeof dateString !== 'string') {
+    throw new Error(`Invalid date string: ${dateString}`);
+  }
+  const parts = dateString.split('-');
+  if (parts.length !== 3) {
+    throw new Error(`Invalid date format. Expected YYYY-MM-DD, got: ${dateString}`);
+  }
+  const [year, month, day] = parts.map(Number);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    throw new Error(`Invalid date values. Year: ${year}, Month: ${month}, Day: ${day}`);
+  }
   // month - 1 porque los meses en Date son 0-indexados
   return new Date(year, month - 1, day);
 }
@@ -108,8 +118,8 @@ export class TransactionsService {
     return savedTransaction;
   }
 
-  async findAll(user: any, paginationDto: PaginationDto): Promise<Transaction[]> {
-    const { limit, offset } = paginationDto;
+  async findAll(user: any, paginationDto: PaginationDto & { startDate?: string; endDate?: string }): Promise<Transaction[]> {
+    const { limit, offset, startDate, endDate } = paginationDto;
     const where: any = {};
 
     // Filtrar según el rol
@@ -117,6 +127,15 @@ export class TransactionsService {
       where.clientApp = { id: user.id };
     } else if (user.role === UserRole.VENDEDOR) {
       where.createdBy = { id: user.id };
+    }
+
+    // Agregar filtro de fecha si se proporciona
+    if (startDate && endDate) {
+      const dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      const dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+      where.createdAt = Between(dateFrom, dateTo);
     }
 
     const transactions = await this.transactionsRepository.find({
@@ -1214,13 +1233,18 @@ export class TransactionsService {
       createdBy: { id: user.id },
     };
 
-    // Aplicar filtros de fecha si existen
-    if (startDate && endDate) {
-      const dateFrom = parseLocalDate(startDate);
-      dateFrom.setHours(0, 0, 0, 0);
-      const dateTo = parseLocalDate(endDate);
-      dateTo.setHours(23, 59, 59, 999);
-      whereConditions.createdAt = Between(dateFrom, dateTo);
+    // Aplicar filtros de fecha si existen y son válidos
+    if (startDate && endDate && typeof startDate === 'string' && typeof endDate === 'string' && startDate.trim() && endDate.trim()) {
+      try {
+        const dateFrom = parseLocalDate(startDate);
+        dateFrom.setHours(0, 0, 0, 0);
+        const dateTo = parseLocalDate(endDate);
+        dateTo.setHours(23, 59, 59, 999);
+        whereConditions.createdAt = Between(dateFrom, dateTo);
+      } catch (error) {
+        // Si hay error parseando fechas, ignorar el filtro de fecha
+        console.warn('Error parsing dates in getVendorReports:', error);
+      }
     }
 
     // Obtener todas las transacciones del vendedor con el filtro de fecha

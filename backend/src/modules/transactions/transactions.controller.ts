@@ -45,7 +45,7 @@ export class TransactionsController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: any, @Query() paginationDto: PaginationDto) {
+  findAll(@CurrentUser() user: any, @Query() paginationDto: PaginationDto & { startDate?: string; endDate?: string }) {
     return this.transactionsService.findAll(user, paginationDto);
   }
 

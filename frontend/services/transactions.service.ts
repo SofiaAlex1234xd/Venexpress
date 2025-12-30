@@ -2,10 +2,11 @@ import api from './api';
 import { Transaction, CreateTransactionDto, TransactionHistory, SetPurchaseRateDto, PendingPurchaseRateQuery } from '@/types/transaction';
 
 export const transactionsService = {
-    async getTransactions(limit: number = 10, offset: number = 0): Promise<Transaction[]> {
-        const response = await api.get<Transaction[]>('/transactions', {
-            params: { limit, offset },
-        });
+    async getTransactions(limit: number = 10, offset: number = 0, startDate?: string, endDate?: string): Promise<Transaction[]> {
+        const params: any = { limit, offset };
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+        const response = await api.get<Transaction[]>('/transactions', { params });
         return response.data;
     },
 

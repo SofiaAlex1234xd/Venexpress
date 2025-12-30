@@ -78,7 +78,15 @@ export default function DashboardPage() {
                 setRecentTransactions(pendingTransfers.slice(0, 3));
             } else {
                 // Para vendedores
-                const transactions = await transactionsService.getTransactions(100, 0);
+                const today = getLocalDateString();
+                const transactions = await transactionsService.getTransactions(100, 0, today, today);
+
+                // Calcular ganancias de hoy (2% de transacciones completadas)
+                const completedToday = transactions.filter(t => t.status === 'completado');
+                const todayEarningsCalc = completedToday.reduce((sum, t) => {
+                    const copValue = parseFloat(t.amountCOP?.toString() || '0');
+                    return sum + (copValue * 0.02); // 2% de comisión
+                }, 0);
 
                 const totalStats = {
                     total: transactions.length,
@@ -87,6 +95,7 @@ export default function DashboardPage() {
                     completadas: transactions.filter(t => t.status === 'completado').length,
                 };
                 setStats(totalStats);
+                setTodayEarnings(todayEarningsCalc);
                 setRecentTransactions(transactions.slice(0, 3));
             }
         } catch (error) {
@@ -149,8 +158,8 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* Ganancias de Hoy - Solo para Admins */}
-                {(user?.role === 'admin_colombia' || user?.role === 'admin_venezuela') && todayEarnings !== null && (
+                {/* Ganancias de Hoy - Para Admins y Vendedores */}
+                {todayEarnings !== null && (
                     <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white h-full">
                         <div className="flex items-center justify-between">
                             <div>
@@ -162,7 +171,11 @@ export default function DashboardPage() {
                                     {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                 </p>
                                 <p className="text-green-200 text-xs mt-2 font-medium">
-                                    {user?.role === 'admin_colombia' ? 'Admin Colombia' : 'Admin Venezuela'}
+                                    {user?.role === 'admin_colombia' 
+                                        ? 'Admin Colombia' 
+                                        : user?.role === 'admin_venezuela' 
+                                        ? 'Admin Venezuela' 
+                                        : 'Comisión (2%)'}
                                 </p>
                             </div>
                             <svg className="w-20 h-20 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">

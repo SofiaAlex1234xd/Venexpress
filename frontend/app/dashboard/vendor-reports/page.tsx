@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { transactionsService } from '@/services/transactions.service';
+import { getLocalDateString, getDateDaysAgo, getFirstDayOfMonth } from '@/utils/date';
 
 interface VendorReports {
     totalTransactions: number;
@@ -44,47 +45,50 @@ export default function VendorReportsPage() {
     const [reports, setReports] = useState<VendorReports | null>(null);
     const [loading, setLoading] = useState(true);
     const [dateFilter, setDateFilter] = useState<string>('today');
-    const [customStartDate, setCustomStartDate] = useState<string>('');
-    const [customEndDate, setCustomEndDate] = useState<string>('');
+    const [customStartDate, setCustomStartDate] = useState<string>(() => getLocalDateString());
+    const [customEndDate, setCustomEndDate] = useState<string>(() => getLocalDateString());
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // Calcular fechas según el filtro
+    // Calcular fechas según el filtro (usando fechas locales)
     const getDateRange = () => {
-        const now = new Date();
-        let startDate = new Date();
-        let endDate = new Date();
+        let startDate: string;
+        let endDate: string;
 
         switch (dateFilter) {
             case 'today':
-                startDate.setHours(0, 0, 0, 0);
-                endDate.setHours(23, 59, 59, 999);
+                const today = getLocalDateString();
+                startDate = today;
+                endDate = today;
                 break;
             case '15days':
-                startDate.setDate(now.getDate() - 15);
-                startDate.setHours(0, 0, 0, 0);
-                endDate.setHours(23, 59, 59, 999);
+                startDate = getDateDaysAgo(15);
+                endDate = getLocalDateString();
                 break;
             case 'month':
-                startDate.setDate(1);
-                startDate.setHours(0, 0, 0, 0);
-                endDate.setHours(23, 59, 59, 999);
+                startDate = getFirstDayOfMonth();
+                endDate = getLocalDateString();
                 break;
             case 'custom':
                 if (customStartDate && customEndDate) {
-                    startDate = new Date(customStartDate);
-                    endDate = new Date(customEndDate);
-                    endDate.setHours(23, 59, 59, 999);
+                    startDate = customStartDate;
+                    endDate = customEndDate;
+                } else {
+                    // Default a hoy si no hay fechas personalizadas
+                    const today = getLocalDateString();
+                    startDate = today;
+                    endDate = today;
                 }
                 break;
             default:
-                startDate.setHours(0, 0, 0, 0);
-                endDate.setHours(23, 59, 59, 999);
+                const todayDefault = getLocalDateString();
+                startDate = todayDefault;
+                endDate = todayDefault;
         }
 
         return {
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
+            startDate,
+            endDate,
         };
     };
 
