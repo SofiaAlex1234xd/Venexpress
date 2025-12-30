@@ -293,23 +293,86 @@ export default function TransactionsPage() {
 
                     // Crear un objeto File (como si estuviera en la galería)
                     const archivo = new File([blob], `comprobante-${selectedTransaction.id}.jpg`, {
-                        type: blob.type
+                        type: blob.type || 'image/jpeg'
                     });
 
-                    // Datos a compartir
-                    const dataCompartir = {
+                    // Intentar compartir con archivo + texto juntos
+                    const dataCompartir: any = {
                         files: [archivo],
                         title: 'Transferencia Completada',
                         text: texto
                     };
 
+                    let compartidoExitoso = false;
+
                     // Verificar si el navegador puede compartir estos datos
-                    if (navigator.canShare && !navigator.canShare(dataCompartir)) {
-                        throw new Error('El navegador no puede compartir este contenido');
+                    if (navigator.canShare) {
+                        if (navigator.canShare(dataCompartir)) {
+                            // El navegador soporta compartir archivos + texto juntos
+                            try {
+                                await navigator.share(dataCompartir);
+                                compartidoExitoso = true;
+                            } catch (e: any) {
+                                if (e.name === 'AbortError') {
+                                    return; // Usuario canceló
+                                }
+                                // Si falla, intentar solo con archivo
+                            }
+                        }
+                        
+                        // Si no se pudo compartir ambos juntos, intentar solo archivo
+                        if (!compartidoExitoso) {
+                            const dataSoloArchivo = {
+                                files: [archivo],
+                                title: 'Transferencia Completada'
+                            };
+                            
+                            if (navigator.canShare(dataSoloArchivo)) {
+                                try {
+                                    await navigator.share(dataSoloArchivo);
+                                    compartidoExitoso = true;
+                                    
+                                    // Después de compartir la imagen, compartir el texto
+                                    // Esperar un momento para que el usuario pueda procesar
+                                    setTimeout(async () => {
+                                        try {
+                                            await navigator.share({
+                                                title: 'Transferencia Completada',
+                                                text: texto
+                                            });
+                                        } catch (e: any) {
+                                            // Ignorar si el usuario cancela el segundo compartir
+                                            if (e.name !== 'AbortError') {
+                                                console.log('No se pudo compartir el texto después de la imagen');
+                                            }
+                                        }
+                                    }, 300);
+                                } catch (e: any) {
+                                    if (e.name === 'AbortError') {
+                                        return; // Usuario canceló
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Si no hay canShare, intentar compartir directamente
+                        try {
+                            await navigator.share(dataCompartir);
+                            compartidoExitoso = true;
+                        } catch (e: any) {
+                            if (e.name === 'AbortError') {
+                                return; // Usuario canceló
+                            }
+                        }
                     }
 
-                    // Abrir el menú nativo de compartir
-                    await navigator.share(dataCompartir);
+                    // Si aún no se pudo compartir, intentar solo texto con URL de imagen
+                    if (!compartidoExitoso) {
+                        await navigator.share({
+                            title: 'Transferencia Completada',
+                            text: `${texto}\n\n📎 Comprobante: ${venezuelaProof}`
+                        });
+                    }
 
                     // Cerrar el modal después de compartir
                     setIsDetailModalOpen(false);
@@ -325,13 +388,30 @@ export default function TransactionsPage() {
                     if (shareError.name === 'AbortError') {
                         console.log('Usuario canceló el compartir');
                         // No mostrar error si el usuario solo cerró el menú
+                        return;
                     } else {
                         console.error('Error al compartir:', shareError);
-                        setAlertState({
-                            isOpen: true,
-                            message: 'No se pudo compartir la imagen. Intenta nuevamente.',
-                            variant: 'error'
-                        });
+                        // Si falla compartir con archivo, intentar solo texto
+                        try {
+                            await navigator.share({
+                                title: 'Transferencia Completada',
+                                text: `${texto}\n\n📎 Comprobante: ${venezuelaProof}`
+                            });
+                            setIsDetailModalOpen(false);
+                            setAlertState({
+                                isOpen: true,
+                                message: 'Texto compartido (imagen disponible en el enlace)',
+                                variant: 'success'
+                            });
+                        } catch (textError: any) {
+                            if (textError.name !== 'AbortError') {
+                                setAlertState({
+                                    isOpen: true,
+                                    message: 'No se pudo compartir. Intenta nuevamente.',
+                                    variant: 'error'
+                                });
+                            }
+                        }
                     }
                 }
             } else {
