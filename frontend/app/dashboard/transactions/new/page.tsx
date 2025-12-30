@@ -303,8 +303,10 @@ export default function NewTransactionPage() {
     // Filter beneficiaries based on search
     const searchedBeneficiaries = filteredBeneficiaries.filter(ben =>
         ben.fullName.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
-        ben.accountNumber.includes(beneficiarySearch) ||
-        ben.bankName.toLowerCase().includes(beneficiarySearch.toLowerCase())
+        ben.accountNumber?.includes(beneficiarySearch) ||
+        ben.bankName.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
+        ben.phone?.includes(beneficiarySearch) ||
+        ben.documentId.includes(beneficiarySearch)
     );
 
     return (
