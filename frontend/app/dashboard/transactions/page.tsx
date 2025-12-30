@@ -291,6 +291,20 @@ export default function TransactionsPage() {
 
                     const blob = await respuesta.blob();
 
+                    // Intentar copiar el texto al portapapeles como respaldo
+                    try {
+                        await navigator.clipboard.writeText(texto);
+                        setAlertState({
+                            isOpen: true,
+                            message: 'Texto copiado al portapapeles. Si WhatsApp no lo muestra, pégalo.',
+                            variant: 'info'
+                        });
+                        // Dar un pequeño tiempo para que el usuario vea el mensaje
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    } catch (err) {
+                        console.error('Error al copiar al portapapeles:', err);
+                    }
+
                     // Crear un objeto File (como si estuviera en la galería)
                     const archivo = new File([blob], `comprobante-${selectedTransaction.id}.jpg`, {
                         type: blob.type || 'image/jpeg'
@@ -319,19 +333,19 @@ export default function TransactionsPage() {
                                 // Si falla, intentar solo con archivo
                             }
                         }
-                        
+
                         // Si no se pudo compartir ambos juntos, intentar solo archivo
                         if (!compartidoExitoso) {
                             const dataSoloArchivo = {
                                 files: [archivo],
                                 title: 'Transferencia Completada'
                             };
-                            
+
                             if (navigator.canShare(dataSoloArchivo)) {
                                 try {
                                     await navigator.share(dataSoloArchivo);
                                     compartidoExitoso = true;
-                                    
+
                                     // Después de compartir la imagen, compartir el texto
                                     // Esperar un momento para que el usuario pueda procesar
                                     setTimeout(async () => {
@@ -972,7 +986,7 @@ export default function TransactionsPage() {
                                     </span>
                                 )}
                             </div>
-                            
+
                             {selectedTransaction.beneficiaryIsPagoMovil ? (
                                 // Layout para Pago Móvil
                                 <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-4">
