@@ -30,6 +30,8 @@ export default function TransferHistoryPage() {
         message: '',
         variant: 'info'
     });
+    const [venezuelaProof, setVenezuelaProof] = useState<string | null>(null);
+    const [loadingProof, setLoadingProof] = useState(false);
     const itemsPerPage = 4;
 
     useEffect(() => {
@@ -60,9 +62,24 @@ export default function TransferHistoryPage() {
         return `${amount.toFixed(2)} Bs`;
     };
 
-    const handleViewDetails = (transaction: Transaction) => {
+    const handleViewDetails = async (transaction: Transaction) => {
         setSelectedTransaction(transaction);
+        setVenezuelaProof(null);
         setIsDetailModalOpen(true);
+
+        if (transaction.comprobanteVenezuela) {
+            try {
+                setLoadingProof(true);
+                const proofs = await transactionsService.getTransactionProofs(transaction.id);
+                if (proofs.comprobanteVenezuela) {
+                    setVenezuelaProof(proofs.comprobanteVenezuela);
+                }
+            } catch (error) {
+                console.error('Error loading proof:', error);
+            } finally {
+                setLoadingProof(false);
+            }
+        }
     };
 
     const handleUpdateVoucher = async () => {
@@ -574,11 +591,16 @@ export default function TransferHistoryPage() {
                             </div>
                         )}
 
-                        {selectedTransaction.comprobanteVenezuela && (
+                        {loadingProof ? (
+                            <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-xl border border-gray-100">
+                                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600 mb-3" />
+                                <p className="text-sm text-gray-500 font-medium">Cargando comprobante...</p>
+                            </div>
+                        ) : venezuelaProof && (
                             <div className="space-y-3">
                                 <h4 className="font-semibold text-gray-900">Comprobante Actual</h4>
                                 <div className="p-2 border border-blue-100 rounded-xl bg-blue-50">
-                                    {selectedTransaction.comprobanteVenezuela.endsWith('.pdf') ? (
+                                    {venezuelaProof.split('?')[0].endsWith('.pdf') ? (
                                         <div className="flex items-center justify-between p-4">
                                             <div className="flex items-center gap-3">
                                                 <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
@@ -587,7 +609,7 @@ export default function TransferHistoryPage() {
                                                 <span className="text-sm font-medium text-gray-700">Comprobante PDF</span>
                                             </div>
                                             <a
-                                                href={selectedTransaction.comprobanteVenezuela}
+                                                href={venezuelaProof}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-blue-600 hover:bg-gray-50 shadow-sm transition-all"
@@ -596,19 +618,24 @@ export default function TransferHistoryPage() {
                                             </a>
                                         </div>
                                     ) : (
-                                        <div className="relative group">
-                                            <img
-                                                src={selectedTransaction.comprobanteVenezuela}
-                                                alt="Comprobante"
-                                                className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-95 transition-all"
-                                                onClick={() => window.open(selectedTransaction.comprobanteVenezuela, '_blank')}
-                                            />
-                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity rounded-lg pointer-events-none">
-                                                <span className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full text-xs font-bold text-gray-800 shadow-xl">
-                                                    Click para ampliar
-                                                </span>
+                                        <>
+                                            <div className="relative group flex justify-center">
+                                                <img
+                                                    src={venezuelaProof}
+                                                    alt="Comprobante"
+                                                    className="max-h-[400px] w-auto max-w-full object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-95 transition-all"
+                                                    onClick={() => window.open(venezuelaProof, '_blank')}
+                                                />
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity rounded-lg pointer-events-none">
+                                                    <span className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full text-xs font-bold text-gray-800 shadow-xl">
+                                                        Click para ampliar
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
+                                            <p className="text-xs text-blue-700 mt-2 text-center italic">
+                                                Clic en la imagen para ver en tamaño completo
+                                            </p>
+                                        </>
                                     )}
                                 </div>
                             </div>

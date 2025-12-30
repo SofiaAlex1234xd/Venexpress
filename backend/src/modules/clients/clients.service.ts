@@ -80,6 +80,8 @@ export class ClientsService {
 
   async remove(id: number): Promise<void> {
     const client = await this.findOne(id);
+    // Eliminar destinatarios asociados (soft delete cascada)
+    await this.beneficiariesService.removeByClient(id);
     await this.clientsRepository.softRemove(client);
   }
 
