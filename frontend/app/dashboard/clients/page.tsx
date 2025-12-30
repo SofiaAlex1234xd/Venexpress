@@ -108,7 +108,7 @@ export default function ClientsPage() {
             let message = `¿Estás seguro de que deseas eliminar al cliente ${client.name}? Esta acción no se puede deshacer de forma manual.`;
 
             if (count > 0) {
-                message = `Este cliente tiene ${count} destinatario(s). Si lo eliminas, esos destinatarios quedarán sin uso a menos de que a cada uno le edites el cliente asociado a uno nuevo que crees. ¿Deseas continuar?`;
+                message = `Este cliente tiene ${count} destinatario(s) asociado(s). Si lo eliminas, estos destinatarios también serán eliminados automáticamente. ¿Deseas continuar?`;
             }
 
             setConfirmState({
