@@ -33,7 +33,7 @@ export default function ClientsPage() {
     const [confirmState, setConfirmState] = useState<{ isOpen: boolean; message: string; onConfirm: () => void }>({
         isOpen: false,
         message: '',
-        onConfirm: () => {}
+        onConfirm: () => { }
     });
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -110,10 +110,13 @@ export default function ClientsPage() {
             errors.name = 'El nombre debe tener al menos 3 caracteres';
         }
 
+        const cleanPhone = formData.phone.replace(/[\s\+\-\(\)]/g, '');
         if (!formData.phone.trim()) {
             errors.phone = 'El teléfono es requerido';
-        } else if (!/^\d{10}$/.test(formData.phone)) {
-            errors.phone = 'El teléfono debe tener 10 dígitos';
+        } else if (cleanPhone.length < 7 || cleanPhone.length > 13) {
+            errors.phone = 'El teléfono debe tener entre 7 y 13 dígitos';
+        } else if (!/^[0-9+\s\-()]*$/.test(formData.phone)) {
+            errors.phone = 'Formato de teléfono no válido';
         }
 
         setFormErrors(errors);
@@ -198,93 +201,93 @@ export default function ClientsPage() {
                     </div>
                 ) : (
                     <>
-                    
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b-2 border-gray-200">
-                                <tr>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                        Nombre
-                                    </th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                        Teléfono
-                                    </th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                        Documento
-                                    </th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                        Fecha Registro
-                                    </th>
-                                    <th className="px-4 lg:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                        Acciones
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {currentClients.map((client) => (
-                                    <tr key={client.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">
-                                                    {client.name.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="font-medium text-gray-900 text-sm">{client.name}</div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
-                                            {client.phone}
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
-                                            {client.documentId || '-'}
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-gray-600 text-xs md:text-sm">
-                                            {new Date(client.createdAt).toLocaleDateString('es-CO')}
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right text-xs md:text-sm font-medium">
-                                            <div className="flex gap-2 justify-end">
-                                                <button
-                                                    onClick={() => handleViewDetails(client)}
-                                                    className="text-purple-600 hover:text-purple-900 whitespace-nowrap"
-                                                >
-                                                    Ver detalles
-                                                </button>
-                                                <button
-                                                    onClick={() => openEditModal(client)}
-                                                    className="text-blue-600 hover:text-blue-900 whitespace-nowrap"
-                                                >
-                                                    Editar
-                                                </button>
-                                            </div>
-                                        </td>
+
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                                    <tr>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                            Nombre
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                            Teléfono
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                            Documento
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                            Fecha Registro
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                            Acciones
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {currentClients.map((client) => (
+                                        <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">
+                                                        {client.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="font-medium text-gray-900 text-sm">{client.name}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
+                                                {client.phone}
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
+                                                {client.documentId || '-'}
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-gray-600 text-xs md:text-sm">
+                                                {new Date(client.createdAt).toLocaleDateString('es-CO')}
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right text-xs md:text-sm font-medium">
+                                                <div className="flex gap-2 justify-end">
+                                                    <button
+                                                        onClick={() => handleViewDetails(client)}
+                                                        className="text-purple-600 hover:text-purple-900 whitespace-nowrap"
+                                                    >
+                                                        Ver detalles
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openEditModal(client)}
+                                                        className="text-blue-600 hover:text-blue-900 whitespace-nowrap"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                    {/* Mobile list */}
-                    <div className="md:hidden space-y-3">
-                        {currentClients.map((client) => (
-                            <div key={client.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold mr-2">{client.name.charAt(0).toUpperCase()}</div>
-                                        <div className="min-w-0">
-                                            <div className="font-medium text-gray-900 truncate">{client.name}</div>
-                                            <div className="text-sm text-gray-500 truncate">{client.phone}</div>
+                        {/* Mobile list */}
+                        <div className="md:hidden space-y-3">
+                            {currentClients.map((client) => (
+                                <div key={client.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold mr-2">{client.name.charAt(0).toUpperCase()}</div>
+                                            <div className="min-w-0">
+                                                <div className="font-medium text-gray-900 truncate">{client.name}</div>
+                                                <div className="text-sm text-gray-500 truncate">{client.phone}</div>
+                                            </div>
                                         </div>
+                                        <div className="text-sm text-gray-600">{new Date(client.createdAt).toLocaleDateString('es-CO')}</div>
                                     </div>
-                                    <div className="text-sm text-gray-600">{new Date(client.createdAt).toLocaleDateString('es-CO')}</div>
+                                    <div className="mt-3 flex items-center justify-end gap-3">
+                                        <button onClick={() => handleViewDetails(client)} className="text-purple-600 hover:text-purple-900">Ver detalles</button>
+                                        <button onClick={() => openEditModal(client)} className="text-blue-600 hover:text-blue-900">Editar</button>
+                                    </div>
                                 </div>
-                                <div className="mt-3 flex items-center justify-end gap-3">
-                                    <button onClick={() => handleViewDetails(client)} className="text-purple-600 hover:text-purple-900">Ver detalles</button>
-                                    <button onClick={() => openEditModal(client)} className="text-blue-600 hover:text-blue-900">Editar</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
 
-                    </> 
+                    </>
                 )}
 
                 {/* Pagination */}
@@ -306,11 +309,10 @@ export default function ClientsPage() {
                                     <button
                                         key={page}
                                         onClick={() => setCurrentPage(page)}
-                                        className={`px-3 py-2 text-sm font-medium rounded-lg ${
-                                            currentPage === page
+                                        className={`px-3 py-2 text-sm font-medium rounded-lg ${currentPage === page
                                                 ? 'bg-blue-600 text-white'
                                                 : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                        }`}
+                                            }`}
                                     >
                                         {page}
                                     </button>
@@ -352,9 +354,13 @@ export default function ClientsPage() {
 
                     <Input
                         label="Teléfono"
-                        placeholder="3001234567"
+                        placeholder="+57 300 123 4567"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => {
+                            // Permitir solo números, espacios, guiones, paréntesis y el símbolo +
+                            const value = e.target.value.replace(/[^\d\s\-\(\)\+]/g, '');
+                            setFormData({ ...formData, phone: value });
+                        }}
                         error={formErrors.phone}
                     />
 
@@ -399,7 +405,7 @@ export default function ClientsPage() {
                 cancelText="Cancelar"
                 variant="danger"
                 onConfirm={confirmState.onConfirm}
-                onCancel={() => setConfirmState({ isOpen: false, message: '', onConfirm: () => {} })}
+                onCancel={() => setConfirmState({ isOpen: false, message: '', onConfirm: () => { } })}
             />
 
             {/* Client Detail Modal */}
@@ -428,7 +434,7 @@ export default function ClientsPage() {
                                 <p className="text-xs text-gray-500 mb-1">Teléfono</p>
                                 <p className="text-lg font-semibold text-gray-900">{selectedClient.phone}</p>
                             </div>
-                            
+
                             {selectedClient.documentId && (
                                 <div className="p-4 bg-gray-50 rounded-xl">
                                     <p className="text-xs text-gray-500 mb-1">Documento</p>

@@ -58,7 +58,7 @@ export default function BeneficiariesPage() {
     const [confirmState, setConfirmState] = useState<{ isOpen: boolean; message: string; onConfirm: () => void }>({
         isOpen: false,
         message: '',
-        onConfirm: () => {}
+        onConfirm: () => { }
     });
     const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -166,17 +166,27 @@ export default function BeneficiariesPage() {
             if (!formData.phone || !formData.phone.trim()) {
                 errors.phone = 'El teléfono es requerido para pago móvil';
             } else {
-                // Remover espacios, guiones y paréntesis para validar
-                const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '');
+                // Remover espacios, guiones, paréntesis y símbolos para validar
+                const cleanPhone = formData.phone.replace(/[\s\+\-\(\)]/g, '');
                 if (!/^04\d{9}$/.test(cleanPhone)) {
-                    errors.phone = 'El teléfono debe tener formato 04XXXXXXXXX (11 dígitos, empezando con 04)';
+                    errors.phone = 'El teléfono de Pago Móvil debe tener 11 dígitos y empezar con 04';
                 }
             }
         } else {
             // Validaciones para Transferencia Bancaria
+            // Teléfono opcional
+            if (formData.phone && formData.phone.trim()) {
+                const cleanPhone = formData.phone.replace(/[\s\+\-\(\)]/g, '');
+                if (cleanPhone.length < 7 || cleanPhone.length > 13) {
+                    errors.phone = 'El teléfono debe tener entre 7 y 13 dígitos';
+                } else if (!/^[0-9+\s\-()]*$/.test(formData.phone)) {
+                    errors.phone = 'Formato de teléfono no válido';
+                }
+            }
+
             if (!formData.accountNumber.trim()) {
                 errors.accountNumber = 'El número de cuenta es requerido';
-            } else if (!/^\d{20}$/.test(formData.accountNumber)) {
+            } else if (!/^\d{20}$/.test(formData.accountNumber.replace(/\s/g, ''))) {
                 errors.accountNumber = 'El número de cuenta debe tener 20 dígitos';
             }
         }
@@ -197,8 +207,8 @@ export default function BeneficiariesPage() {
         setSaving(true);
         try {
             // Limpiar el teléfono antes de enviar (remover espacios, guiones, etc.)
-            const cleanPhone = formData.isPagoMovil && formData.phone 
-                ? formData.phone.replace(/[\s\-\(\)]/g, '') 
+            const cleanPhone = formData.phone
+                ? formData.phone.replace(/[\s\+\-\(\)]/g, '')
                 : formData.phone;
 
             const dataToSend = {
@@ -275,88 +285,88 @@ export default function BeneficiariesPage() {
                     </div>
                 ) : (
                     <>
-                    
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b-2 border-gray-200">
-                                <tr>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Nombre</th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Documento</th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Banco</th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Cuenta</th>
-                                    <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Cliente</th>
-                                    <th className="px-4 lg:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {currentBeneficiaries.map((beneficiary) => (
-                                    <tr key={beneficiary.id} className="hover:bg-gray-50">
-                                        <td className="px-4 lg:px-6 py-4">
-                                            <div className="font-medium text-gray-900 text-sm">{beneficiary.fullName}</div>
-                                            <div className="text-xs text-gray-500">
-                                                {beneficiary.isPagoMovil ? '📱 Pago Móvil' : '🏦 Transferencia'}
-                                                {beneficiary.phone && ` · ${beneficiary.phone}`}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 text-gray-600 text-sm">{beneficiary.documentId}</td>
-                                        <td className="px-4 lg:px-6 py-4 text-gray-600 text-sm">{beneficiary.bankName}</td>
-                                        <td className="px-4 lg:px-6 py-4">
-                                            {beneficiary.isPagoMovil ? (
-                                                <div className="text-gray-900 text-sm">
-                                                    {beneficiary.phone || '-'}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <div className="text-gray-900 font-mono text-xs md:text-sm">{beneficiary.accountNumber}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{beneficiary.accountType}</div>
-                                                </>
-                                            )}
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 text-gray-600 text-sm">
-                                            {beneficiary.clientColombia?.name || '-'}
-                                        </td>
-                                        <td className="px-4 lg:px-6 py-4 text-right text-xs md:text-sm">
-                                            <div className="flex gap-2 justify-end">
-                                                <button
-                                                    onClick={() => handleViewDetails(beneficiary)}
-                                                    className="text-purple-600 hover:text-purple-900 whitespace-nowrap"
-                                                >
-                                                    Ver detalles
-                                                </button>
-                                                <button onClick={() => openEditModal(beneficiary)} className="text-blue-600 hover:text-blue-900 whitespace-nowrap">
-                                                    Editar
-                                                </button>
-                                            </div>
-                                        </td>
+
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                                    <tr>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Nombre</th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Documento</th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Banco</th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Cuenta</th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase">Cliente</th>
+                                        <th className="px-4 lg:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase">Acciones</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {currentBeneficiaries.map((beneficiary) => (
+                                        <tr key={beneficiary.id} className="hover:bg-gray-50">
+                                            <td className="px-4 lg:px-6 py-4">
+                                                <div className="font-medium text-gray-900 text-sm">{beneficiary.fullName}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {beneficiary.isPagoMovil ? '📱 Pago Móvil' : '🏦 Transferencia'}
+                                                    {beneficiary.phone && ` · ${beneficiary.phone}`}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 text-gray-600 text-sm">{beneficiary.documentId}</td>
+                                            <td className="px-4 lg:px-6 py-4 text-gray-600 text-sm">{beneficiary.bankName}</td>
+                                            <td className="px-4 lg:px-6 py-4">
+                                                {beneficiary.isPagoMovil ? (
+                                                    <div className="text-gray-900 text-sm">
+                                                        {beneficiary.phone || '-'}
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="text-gray-900 font-mono text-xs md:text-sm">{beneficiary.accountNumber}</div>
+                                                        <div className="text-xs text-gray-500 capitalize">{beneficiary.accountType}</div>
+                                                    </>
+                                                )}
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 text-gray-600 text-sm">
+                                                {beneficiary.clientColombia?.name || '-'}
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 text-right text-xs md:text-sm">
+                                                <div className="flex gap-2 justify-end">
+                                                    <button
+                                                        onClick={() => handleViewDetails(beneficiary)}
+                                                        className="text-purple-600 hover:text-purple-900 whitespace-nowrap"
+                                                    >
+                                                        Ver detalles
+                                                    </button>
+                                                    <button onClick={() => openEditModal(beneficiary)} className="text-blue-600 hover:text-blue-900 whitespace-nowrap">
+                                                        Editar
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                    {/* Mobile list */}
-                    <div className="md:hidden space-y-3">
-                        {currentBeneficiaries.map((beneficiary) => (
-                            <div key={beneficiary.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <div className="font-medium text-gray-900 truncate">{beneficiary.fullName}</div>
-                                        <div className="text-sm text-gray-500 truncate">{beneficiary.bankName} · {beneficiary.accountNumber}</div>
+                        {/* Mobile list */}
+                        <div className="md:hidden space-y-3">
+                            {currentBeneficiaries.map((beneficiary) => (
+                                <div key={beneficiary.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="font-medium text-gray-900 truncate">{beneficiary.fullName}</div>
+                                            <div className="text-sm text-gray-500 truncate">{beneficiary.bankName} · {beneficiary.accountNumber}</div>
+                                        </div>
+                                        <div className="text-right text-sm text-gray-600">{beneficiary.clientColombia?.name || '-'}</div>
                                     </div>
-                                    <div className="text-right text-sm text-gray-600">{beneficiary.clientColombia?.name || '-'}</div>
-                                </div>
-                                <div className="mt-3 flex items-center justify-between">
-                                    <div className="text-sm text-gray-600">{beneficiary.documentId}</div>
-                                    <div className="flex gap-3">
-                                        <button onClick={() => handleViewDetails(beneficiary)} className="text-purple-600 hover:text-purple-900">Ver detalles</button>
-                                        <button onClick={() => openEditModal(beneficiary)} className="text-blue-600 hover:text-blue-900">Editar</button>
+                                    <div className="mt-3 flex items-center justify-between">
+                                        <div className="text-sm text-gray-600">{beneficiary.documentId}</div>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => handleViewDetails(beneficiary)} className="text-purple-600 hover:text-purple-900">Ver detalles</button>
+                                            <button onClick={() => openEditModal(beneficiary)} className="text-blue-600 hover:text-blue-900">Editar</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
 
-                    </> 
+                    </>
                 )}
 
                 {/* Pagination */}
@@ -378,11 +388,10 @@ export default function BeneficiariesPage() {
                                     <button
                                         key={page}
                                         onClick={() => setCurrentPage(page)}
-                                        className={`px-3 py-2 text-sm font-medium rounded-lg ${
-                                            currentPage === page
-                                                ? 'bg-blue-600 text-white'
-                                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                        }`}
+                                        className={`px-3 py-2 text-sm font-medium rounded-lg ${currentPage === page
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                            }`}
                                     >
                                         {page}
                                     </button>
@@ -475,8 +484,8 @@ export default function BeneficiariesPage() {
                                 placeholder="04121234567 (11 dígitos, formato: 04XXXXXXXXX)"
                                 value={formData.phone}
                                 onChange={(e) => {
-                                    // Permitir solo números, espacios, guiones y paréntesis
-                                    const value = e.target.value.replace(/[^\d\s\-\(\)]/g, '');
+                                    // Permitir solo números, espacios, guiones, paréntesis y +
+                                    const value = e.target.value.replace(/[^\d\s\-\(\)\+]/g, '');
                                     setFormData({ ...formData, phone: value });
                                 }}
                                 error={formErrors.phone}
@@ -512,9 +521,12 @@ export default function BeneficiariesPage() {
 
                             <Input
                                 label="Teléfono (opcional)"
-                                placeholder="04121234567"
+                                placeholder="+57 300 123 4567"
                                 value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                onChange={(e) => {
+                                    const value = e.target.value.replace(/[^\d\s\-\(\)\+]/g, '');
+                                    setFormData({ ...formData, phone: value });
+                                }}
                                 error={formErrors.phone}
                             />
                         </>
@@ -568,7 +580,7 @@ export default function BeneficiariesPage() {
                 cancelText="Cancelar"
                 variant="danger"
                 onConfirm={confirmState.onConfirm}
-                onCancel={() => setConfirmState({ isOpen: false, message: '', onConfirm: () => {} })}
+                onCancel={() => setConfirmState({ isOpen: false, message: '', onConfirm: () => { } })}
             />
 
             {/* Beneficiary Detail Modal */}
