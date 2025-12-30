@@ -239,8 +239,17 @@ export default function BeneficiariesPage() {
                 ? formData.phone.replace(/[\s\+\-\(\)]/g, '')
                 : formData.phone;
 
+            let finalFullName = formData.fullName;
+            if (formData.isPagoMovil && !formData.fullName.trim()) {
+                const client = clients.find(c => c.id === Number(formData.clientColombiaId));
+                const clientName = client ? client.name : '';
+                const lastFourDoc = formData.documentId.slice(-4);
+                finalFullName = `Pago Movil (${clientName}) ${lastFourDoc}`;
+            }
+
             const dataToSend = {
                 ...formData,
+                fullName: finalFullName,
                 phone: cleanPhone,
                 clientColombiaId: Number(formData.clientColombiaId),
             };
