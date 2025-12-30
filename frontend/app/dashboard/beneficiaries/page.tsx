@@ -489,11 +489,14 @@ export default function BeneficiariesPage() {
 
                         <Input
                             label="Cédula *"
-                            placeholder="V-12345678"
-                            type="text"
-                            inputMode="text" // Combinado letras y números
+                            placeholder="12345678"
+                            type="tel"
+                            inputMode="numeric"
                             value={formData.documentId}
-                            onChange={(e) => setFormData({ ...formData, documentId: e.target.value })}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, '');
+                                setFormData({ ...formData, documentId: value });
+                            }}
                             error={formErrors.documentId}
                         />
                     </div>

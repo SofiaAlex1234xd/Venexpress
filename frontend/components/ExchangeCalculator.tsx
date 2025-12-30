@@ -39,7 +39,7 @@ export default function ExchangeCalculator({ rate, isOpen, onClose }: ExchangeCa
             setAmountCOP(formatCOP(cop));
 
             const bs = cop / rate;
-            setAmountBs(bs.toFixed(2));
+            setAmountBs(Math.round(bs).toString());
         }
     };
 
@@ -130,8 +130,8 @@ export default function ExchangeCalculator({ rate, isOpen, onClose }: ExchangeCa
                                 inputMode="decimal"
                                 step="0.01"
                                 value={amountBs}
-                                onChange={(e) => handleBsChange(e.target.value)}
-                                placeholder="0.00"
+                                onChange={(e) => handleBsChange(e.target.value.replace(/\D/g, ''))}
+                                placeholder="0"
                                 className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-lg font-semibold"
                             />
                         </div>
@@ -143,7 +143,7 @@ export default function ExchangeCalculator({ rate, isOpen, onClose }: ExchangeCa
                             <p className="text-sm text-gray-700">
                                 <span className="font-bold">${amountCOP} COP</span>
                                 {' '}equivale a{' '}
-                                <span className="font-bold">{parseFloat(amountBs).toLocaleString('es-CO')} Bs</span>
+                                <span className="font-bold">{parseInt(amountBs).toLocaleString('es-CO')} Bs</span>
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
                                 Tasa aplicada: {rate.toFixed(2)} Bs/COP

@@ -127,7 +127,7 @@ export default function NewTransactionPage() {
 
             if (activeRate > 0) {
                 const bs = cop / activeRate;
-                setFormData(prev => ({ ...prev, amountCOP: formattedCOP, amountBs: bs.toFixed(2) }));
+                setFormData(prev => ({ ...prev, amountCOP: formattedCOP, amountBs: Math.round(bs).toString() }));
             } else {
                 setFormData(prev => ({ ...prev, amountCOP: formattedCOP }));
                 console.warn('Active rate is 0 or invalid. Cannot calculate Bs amount.'); // Debug log
@@ -178,7 +178,7 @@ export default function NewTransactionPage() {
         if (formData.amountCOP) {
             const cop = parseFloat(formData.amountCOP.replace(/\./g, ''));
             const bs = cop / parseFloat(customRate);
-            setFormData(prev => ({ ...prev, amountBs: bs.toFixed(2) }));
+            setFormData(prev => ({ ...prev, amountBs: Math.round(bs).toString() }));
         } else if (formData.amountBs) {
             const bs = parseFloat(formData.amountBs);
             const cop = bs * parseFloat(customRate);
@@ -195,7 +195,7 @@ export default function NewTransactionPage() {
         if (formData.amountCOP && currentRate) {
             const cop = parseFloat(formData.amountCOP.replace(/\./g, ''));
             const bs = cop / Number(currentRate.saleRate);
-            setFormData(prev => ({ ...prev, amountBs: bs.toFixed(2) }));
+            setFormData(prev => ({ ...prev, amountBs: Math.round(bs).toString() }));
         } else if (formData.amountBs && currentRate) {
             const bs = parseFloat(formData.amountBs);
             const cop = bs * Number(currentRate.saleRate);
@@ -676,12 +676,11 @@ export default function NewTransactionPage() {
                                     <div>
                                         <Input
                                             label="Monto en Bs"
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="0.01"
-                                            placeholder="0.00"
+                                            type="text"
+                                            inputMode="numeric"
+                                            placeholder="0"
                                             value={formData.amountBs}
-                                            onChange={(e) => handleAmountBsChange(e.target.value)}
+                                            onChange={(e) => handleAmountBsChange(e.target.value.replace(/\D/g, ''))}
                                             error={errors.amount}
                                             icon={
                                                 <span className="text-gray-500 font-medium">Bs</span>
@@ -693,7 +692,7 @@ export default function NewTransactionPage() {
                                 {formData.amountCOP && formData.amountBs && (
                                     <div className={`mt-4 p-4 border rounded-lg ${useCustomRate ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
                                         <p className={`text-sm ${useCustomRate ? 'text-green-900' : 'text-blue-900'}`}>
-                                            <span className="font-semibold">Conversión:</span> ${formData.amountCOP} COP = {parseFloat(formData.amountBs).toFixed(2)} Bs
+                                            <span className="font-semibold">Conversión:</span> ${formData.amountCOP} COP = {parseInt(formData.amountBs).toLocaleString('es-CO')} Bs
                                             <span className={`ml-2 ${useCustomRate ? 'text-green-700' : 'text-blue-700'}`}>
                                                 (Tasa {useCustomRate ? 'personalizada' : 'oficial'}: {Number(getActiveRate()).toFixed(2)})
                                             </span>

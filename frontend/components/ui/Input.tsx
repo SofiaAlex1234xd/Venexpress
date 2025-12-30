@@ -4,10 +4,12 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
     icon?: React.ReactNode;
+    rightIcon?: React.ReactNode;
+    onRightIconClick?: () => void;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-    ({ label, error, icon, className = '', ...props }, ref) => {
+    ({ label, error, icon, rightIcon, onRightIconClick, className = '', ...props }, ref) => {
         return (
             <div className="w-full">
                 {label && (
@@ -28,11 +30,20 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 
               focus:ring-blue-100 transition-all duration-200 outline-none
               ${icon ? 'pl-10 sm:pl-12' : ''}
+              ${rightIcon ? 'pr-10 sm:pr-12' : ''}
               ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-100' : ''}
               ${className}
             `}
                         {...props}
                     />
+                    {rightIcon && (
+                        <div
+                            className={`absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 ${onRightIconClick ? 'cursor-pointer hover:text-gray-600' : 'pointer-events-none'}`}
+                            onClick={onRightIconClick}
+                        >
+                            {rightIcon}
+                        </div>
+                    )}
                 </div>
                 {error && (
                     <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
