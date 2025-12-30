@@ -127,6 +127,8 @@ export default function ExchangeCalculator({ rate, isOpen, onClose }: ExchangeCa
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">Bs</span>
                             <input
                                 type="number"
+                                inputMode="decimal"
+                                step="0.01"
                                 value={amountBs}
                                 onChange={(e) => handleBsChange(e.target.value)}
                                 placeholder="0.00"

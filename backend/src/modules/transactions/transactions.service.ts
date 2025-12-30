@@ -1043,12 +1043,46 @@ export class TransactionsService {
       console.warn('Error fetching venezuela payments:', error.message);
     }
 
+    // Calcular detalles de transacciones
+    const transactionDetails = transactions.map((tx) => {
+      const cop = Number(tx.amountCOP) || 0;
+      const bs = Number(tx.amountBs) || 0;
+      const saleRate = Number(tx.saleRate) || 0;
+      const purchaseRate = Number(tx.purchaseRate) || 0;
+
+      if (!saleRate || !purchaseRate) {
+        return null;
+      }
+
+      const bolivares = bs;
+      const inversion = bolivares * purchaseRate;
+      const gananciaSistema = cop - inversion;
+      const gananciaAdminVenezuela = gananciaSistema / 2;
+      const deudaConVenezuela = inversion + gananciaAdminVenezuela;
+
+      return {
+        id: tx.id,
+        createdAt: tx.createdAt,
+        vendorName: tx.createdBy?.name || 'N/A',
+        beneficiaryFullName: tx.beneficiaryFullName,
+        amountCOP: cop,
+        amountBs: bs,
+        saleRate,
+        purchaseRate,
+        inversion,
+        gananciaSistema,
+        gananciaAdminVenezuela,
+        deudaConVenezuela,
+      };
+    }).filter(Boolean);
+
     return {
       totalEarnings, // Ganancias de Admin Venezuela
       totalDebtFromColombia, // Deuda total de Admin Colombia
       totalPaid, // Total pagado por Admin Colombia en este período
       pendingDebt: totalDebtFromColombia - totalPaid, // Deuda pendiente
       transactionCount: transactions.length,
+      transactionDetails, // Detalles con cálculos
       payments: payments.map(p => ({
         id: p.id,
         amount: Number(p.amount),

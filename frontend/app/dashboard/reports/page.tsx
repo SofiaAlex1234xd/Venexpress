@@ -60,9 +60,8 @@ export default function ReportsPage() {
     useEffect(() => {
         // Set default dates (today)
         const todayStr = getLocalDateString();
-
-        setEndDate(todayStr);
         setStartDate(todayStr);
+        setEndDate(todayStr);
     }, []);
 
     useEffect(() => {

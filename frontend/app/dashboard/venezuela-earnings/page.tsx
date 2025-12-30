@@ -12,6 +12,7 @@ export default function VenezuelaEarningsPage() {
   const [startDate, setStartDate] = useState(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState(getLocalDateString());
   const [showToday, setShowToday] = useState(false);
+  const [showTransactionDetails, setShowTransactionDetails] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'admin_venezuela') {
@@ -74,10 +75,11 @@ export default function VenezuelaEarningsPage() {
       </div>
 
       {/* Filtros de fecha */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 sm:mb-4">Período</h3>
+        <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4">
+          <div className="w-full">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Fecha Inicio
             </label>
             <input
@@ -87,11 +89,11 @@ export default function VenezuelaEarningsPage() {
                 setStartDate(e.target.value);
                 setShowToday(false);
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="w-full">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Fecha Fin
             </label>
             <input
@@ -101,13 +103,13 @@ export default function VenezuelaEarningsPage() {
                 setEndDate(e.target.value);
                 setShowToday(false);
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:items-end">
             <button
               onClick={handleTodayFilter}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
                 showToday
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -117,7 +119,7 @@ export default function VenezuelaEarningsPage() {
             </button>
             <button
               onClick={handleMonthFilter}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
                 !showToday
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -219,9 +221,128 @@ export default function VenezuelaEarningsPage() {
             </div>
           </div>
 
+          {/* Cálculo de la Deuda */}
+          {summary.transactionDetails && summary.transactionDetails.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                    Cálculo de la Deuda
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Desglose detallado de cómo se calcula la deuda de Colombia con Venezuela
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowTransactionDetails(!showTransactionDetails)}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  {showTransactionDetails ? 'Ocultar' : 'Ver'} Detalle
+                </button>
+              </div>
+
+              {/* Explicación de la fórmula */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4">
+                <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-2">
+                  📊 Fórmulas aplicadas:
+                </h4>
+                <div className="text-xs text-blue-800 space-y-1">
+                  <p>
+                    <strong>1. Inversión:</strong> Bolívares × Tasa de Compra
+                  </p>
+                  <p>
+                    <strong>2. Ganancia del Sistema:</strong> COP Recibido - Inversión
+                  </p>
+                  <p>
+                    <strong>3. Ganancia Admin Venezuela:</strong> Ganancia del Sistema ÷ 2
+                  </p>
+                  <p className="pt-2 border-t border-blue-300 font-bold">
+                    <strong>DEUDA = Inversión + Ganancia Admin Venezuela</strong>
+                  </p>
+                </div>
+              </div>
+
+              {showTransactionDetails && (
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <table className="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                        <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">COP</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Bs</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">T. Venta</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">T. Compra</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Inversión</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Gan. Sistema</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Gan. VE</th>
+                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase bg-amber-50">Deuda</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {summary.transactionDetails.map((tx: any) => (
+                        <tr key={tx.id} className="hover:bg-gray-50">
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-gray-600">
+                            {new Date(tx.createdAt).toLocaleDateString('es-CO')}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-gray-900 text-xs">
+                            {tx.beneficiaryFullName}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-gray-900">
+                            ${tx.amountCOP.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-gray-900">
+                            {tx.amountBs.toFixed(2)}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-gray-600">
+                            {tx.saleRate.toFixed(2)}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-gray-600">
+                            {tx.purchaseRate.toFixed(2)}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-blue-600 font-medium">
+                            ${tx.inversion.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-green-600 font-medium">
+                            ${tx.gananciaSistema.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-purple-600 font-medium">
+                            ${tx.gananciaAdminVenezuela.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-right text-amber-700 font-bold bg-amber-50">
+                            ${tx.deudaConVenezuela.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                      <tr>
+                        <td colSpan={6} className="px-2 sm:px-3 py-2 text-xs sm:text-sm font-bold text-gray-900">
+                          TOTAL
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-bold text-blue-600">
+                          ${summary.transactionDetails.reduce((sum: number, tx: any) => sum + tx.inversion, 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-bold text-green-600">
+                          ${summary.transactionDetails.reduce((sum: number, tx: any) => sum + tx.gananciaSistema, 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-bold text-purple-600">
+                          ${summary.transactionDetails.reduce((sum: number, tx: any) => sum + tx.gananciaAdminVenezuela, 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-2 sm:px-3 py-2 text-right text-xs sm:text-sm font-bold text-amber-700 bg-amber-100">
+                          ${summary.totalDebtFromColombia.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Historial de Pagos */}
           {summary.payments.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Historial de Pagos</h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
