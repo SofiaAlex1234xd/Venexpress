@@ -141,6 +141,7 @@ export class TransactionsService {
     const transactions = await this.transactionsRepository.find({
       where,
       relations: ['createdBy', 'clientPresencial', 'clientApp', 'beneficiary'],
+      withDeleted: true, // Importante para ver clientes/destinatarios eliminados en el historial
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
@@ -160,6 +161,7 @@ export class TransactionsService {
     const transaction = await this.transactionsRepository.findOne({
       where: { id },
       relations: ['createdBy', 'clientPresencial', 'clientApp', 'beneficiary'],
+      withDeleted: true,
     });
 
     if (!transaction) {
@@ -545,6 +547,7 @@ export class TransactionsService {
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
       .leftJoinAndSelect('transaction.clientPresencial', 'clientPresencial')
       .leftJoinAndSelect('transaction.clientApp', 'clientApp')
+      .withDeleted()
       .where('transaction.createdBy.id = :userId', { userId: user.id })
       .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
       .andWhere('transaction.isPaidByVendor = :isPaid', { isPaid: false })
@@ -611,6 +614,7 @@ export class TransactionsService {
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
       .leftJoinAndSelect('transaction.clientPresencial', 'clientPresencial')
       .leftJoinAndSelect('transaction.clientApp', 'clientApp')
+      .withDeleted()
       .where('transaction.createdBy.id = :userId', { userId })
       .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
       .andWhere('transaction.isPaidByVendor = :isPaid', { isPaid: isPaid === 'true' })
@@ -638,6 +642,7 @@ export class TransactionsService {
     return this.transactionsRepository.find({
       where: { status: TransactionStatus.PENDIENTE_VENEZUELA },
       relations: ['createdBy', 'clientPresencial', 'clientApp', 'beneficiary'],
+      withDeleted: true,
       order: { createdAt: 'ASC' },
     });
   }
@@ -737,7 +742,8 @@ export class TransactionsService {
       .createQueryBuilder('transaction')
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
       .leftJoinAndSelect('transaction.clientPresencial', 'clientPresencial')
-      .leftJoinAndSelect('transaction.clientApp', 'clientApp');
+      .leftJoinAndSelect('transaction.clientApp', 'clientApp')
+      .withDeleted();
 
     // Filter by status if provided
     if (status && status !== 'all') {
@@ -817,7 +823,7 @@ export class TransactionsService {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dayKey = `${year}-${month}-${day}`;
-      
+
       if (!dailyData[dayKey]) {
         dailyData[dayKey] = { cop: 0, bs: 0, count: 0 };
       }
@@ -929,7 +935,7 @@ export class TransactionsService {
       // Crear fechas en la zona horaria local del servidor
       dateFrom = parseLocalDate(startDate);
       dateFrom.setHours(0, 0, 0, 0);
-      
+
       dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
     } else {
@@ -1048,7 +1054,7 @@ export class TransactionsService {
       // Crear fechas en la zona horaria local del servidor
       dateFrom = parseLocalDate(startDate);
       dateFrom.setHours(0, 0, 0, 0);
-      
+
       dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
     } else {
@@ -1095,7 +1101,7 @@ export class TransactionsService {
     // Obtener pagos de Colombia a Venezuela
     let payments = [];
     let totalPaid = 0;
-    
+
     try {
       payments = await this.venezuelaPaymentsRepository.find({
         where: {
@@ -1438,7 +1444,7 @@ export class TransactionsService {
       // Asegurar que cubran el día completo
       dateFrom = parseLocalDate(startDate);
       dateFrom.setHours(0, 0, 0, 0);
-      
+
       dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
     } else {
@@ -1454,9 +1460,9 @@ export class TransactionsService {
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
-      .where('transaction.createdAt >= :dateFrom AND transaction.createdAt <= :dateTo', { 
-        dateFrom, 
-        dateTo 
+      .where('transaction.createdAt >= :dateFrom AND transaction.createdAt <= :dateTo', {
+        dateFrom,
+        dateTo
       });
 
     // Filter by vendor if provided
@@ -1491,7 +1497,7 @@ export class TransactionsService {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dayKey = `${year}-${month}-${day}`;
-      
+
       if (!dailyData[dayKey]) {
         dailyData[dayKey] = { cop: 0, bs: 0, count: 0 };
       }
@@ -1568,7 +1574,7 @@ export class TransactionsService {
       // Crear fechas en la zona horaria local del servidor
       dateFrom = parseLocalDate(startDate);
       dateFrom.setHours(0, 0, 0, 0);
-      
+
       dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
     } else {
@@ -1778,7 +1784,7 @@ export class TransactionsService {
       // Crear fechas en la zona horaria local del servidor
       dateFrom = parseLocalDate(startDate);
       dateFrom.setHours(0, 0, 0, 0);
-      
+
       dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
     } else {

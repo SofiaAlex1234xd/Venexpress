@@ -23,7 +23,7 @@ export default function NewTransactionPage() {
     const [currentRate, setCurrentRate] = useState<ExchangeRate | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    
+
     // Custom rate states
     const [useCustomRate, setUseCustomRate] = useState(false);
     const [customRate, setCustomRate] = useState('');
@@ -102,8 +102,8 @@ export default function NewTransactionPage() {
         }
         if (currentRate) {
             // Handle both number and string types
-            const rate = typeof currentRate.saleRate === 'number' 
-                ? currentRate.saleRate 
+            const rate = typeof currentRate.saleRate === 'number'
+                ? currentRate.saleRate
                 : parseFloat(String(currentRate.saleRate));
             return isNaN(rate) ? 0 : rate;
         }
@@ -122,7 +122,7 @@ export default function NewTransactionPage() {
             const cop = parseFloat(rawValue);
             const formattedCOP = formatCOP(cop);
             const activeRate = getActiveRate();
-            
+
             console.log('Calculating conversion - COP:', cop, 'Rate:', activeRate, 'CurrentRate:', currentRate); // Debug log
 
             if (activeRate > 0) {
@@ -173,7 +173,7 @@ export default function NewTransactionPage() {
 
         setUseCustomRate(true);
         setIsCustomRateModalOpen(false);
-        
+
         // Recalcular montos con la nueva tasa
         if (formData.amountCOP) {
             const cop = parseFloat(formData.amountCOP.replace(/\./g, ''));
@@ -190,7 +190,7 @@ export default function NewTransactionPage() {
         setUseCustomRate(false);
         setCustomRate('');
         setCustomRateConfirmed(false);
-        
+
         // Recalcular montos con la tasa oficial
         if (formData.amountCOP && currentRate) {
             const cop = parseFloat(formData.amountCOP.replace(/\./g, ''));
@@ -294,20 +294,25 @@ export default function NewTransactionPage() {
         );
     }
 
-    // Filter clients based on search
-    const filteredClients = clients.filter(client =>
-        client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        client.phone.includes(clientSearch)
-    );
+    // Filter clients: show top 3 if no search, otherwise search all
+    const filteredClients = clientSearch.trim() === ''
+        ? clients.slice(0, 3)
+        : clients.filter(client =>
+            client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+            client.phone.includes(clientSearch) ||
+            (client.documentId && client.documentId.includes(clientSearch))
+        );
 
-    // Filter beneficiaries based on search
-    const searchedBeneficiaries = filteredBeneficiaries.filter(ben =>
-        ben.fullName.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
-        ben.accountNumber?.includes(beneficiarySearch) ||
-        ben.bankName.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
-        ben.phone?.includes(beneficiarySearch) ||
-        ben.documentId.includes(beneficiarySearch)
-    );
+    // Filter beneficiaries: show top 3 if no search, otherwise search all
+    const searchedBeneficiaries = beneficiarySearch.trim() === ''
+        ? filteredBeneficiaries.slice(0, 3)
+        : filteredBeneficiaries.filter(ben =>
+            ben.fullName.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
+            ben.accountNumber?.includes(beneficiarySearch) ||
+            ben.bankName.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
+            ben.phone?.includes(beneficiarySearch) ||
+            ben.documentId.includes(beneficiarySearch)
+        );
 
     return (
         <div className="p-4 sm:p-8">
@@ -328,8 +333,8 @@ export default function NewTransactionPage() {
                             {/* Step 1 */}
                             <div className="flex items-center flex-1">
                                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold transition-all text-sm sm:text-base flex-shrink-0 ${currentStep >= 1
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-200 text-gray-600'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-200 text-gray-600'
                                     }`}>
                                     1
                                 </div>
@@ -354,8 +359,8 @@ export default function NewTransactionPage() {
                                     <p className="text-xs text-gray-500 hidden md:block">Monto y Confirmación</p>
                                 </div>
                                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold transition-all text-sm sm:text-base flex-shrink-0 ${currentStep >= 2
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-200 text-gray-600'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-200 text-gray-600'
                                     }`}>
                                     2
                                 </div>
@@ -430,8 +435,10 @@ export default function NewTransactionPage() {
                                             </div>
                                         ) : (
                                             <>
-                                                <div className="mb-2 text-xs text-gray-500 px-1">
-                                                    {filteredClients.length} cliente{filteredClients.length !== 1 ? 's' : ''} encontrado{filteredClients.length !== 1 ? 's' : ''}
+                                                <div className="mb-2 text-xs text-gray-500 px-1 font-medium italic">
+                                                    {clientSearch.trim() === ''
+                                                        ? 'Mostrando los últimos 3 clientes creados. Usa el buscador para ver otros.'
+                                                        : `Resultados de búsqueda: ${filteredClients.length} cliente(s)`}
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                     {filteredClients.map(client => (
@@ -443,14 +450,14 @@ export default function NewTransactionPage() {
                                                                 setClientSearch('');
                                                             }}
                                                             className={`p-4 rounded-xl border-2 transition-all text-left ${formData.clientPresencialId === client.id.toString()
-                                                                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                                                                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                                                ? 'border-blue-500 bg-blue-50 shadow-md'
+                                                                : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                                                                 }`}
                                                         >
                                                             <div className="flex items-start gap-3">
                                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${formData.clientPresencialId === client.id.toString()
-                                                                        ? 'bg-blue-500 text-white'
-                                                                        : 'bg-gray-200 text-gray-600'
+                                                                    ? 'bg-blue-500 text-white'
+                                                                    : 'bg-gray-200 text-gray-600'
                                                                     }`}>
                                                                     {client.name.charAt(0).toUpperCase()}
                                                                 </div>
@@ -503,8 +510,10 @@ export default function NewTransactionPage() {
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <div className="mb-2 text-xs text-gray-500 px-1">
-                                                            {searchedBeneficiaries.length} destinatario{searchedBeneficiaries.length !== 1 ? 's' : ''} encontrado{searchedBeneficiaries.length !== 1 ? 's' : ''}
+                                                        <div className="mb-2 text-xs text-gray-500 px-1 font-medium italic">
+                                                            {beneficiarySearch.trim() === ''
+                                                                ? 'Mostrando los últimos 3 destinatarios. Usa el buscador para ver otros.'
+                                                                : `Resultados de búsqueda: ${searchedBeneficiaries.length} destinatario(s)`}
                                                         </div>
                                                         <div className="grid grid-cols-1 gap-3">
                                                             {searchedBeneficiaries.map(ben => (
@@ -516,14 +525,14 @@ export default function NewTransactionPage() {
                                                                         setBeneficiarySearch('');
                                                                     }}
                                                                     className={`p-4 rounded-xl border-2 transition-all text-left ${formData.beneficiaryId === ben.id.toString()
-                                                                            ? 'border-blue-500 bg-blue-50 shadow-md'
-                                                                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                                                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                                                                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                                                                         }`}
                                                                 >
                                                                     <div className="flex items-start gap-3">
                                                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${formData.beneficiaryId === ben.id.toString()
-                                                                                ? 'bg-blue-500 text-white'
-                                                                                : 'bg-gray-200 text-gray-600'
+                                                                            ? 'bg-blue-500 text-white'
+                                                                            : 'bg-gray-200 text-gray-600'
                                                                             }`}>
                                                                             {ben.fullName.charAt(0).toUpperCase()}
                                                                         </div>
@@ -609,6 +618,7 @@ export default function NewTransactionPage() {
                                         <Input
                                             label="Monto en COP"
                                             type="text"
+                                            inputMode="numeric"
                                             placeholder="0.00"
                                             value={formData.amountCOP}
                                             onChange={(e) => handleAmountCOPChange(e.target.value)}
@@ -623,6 +633,8 @@ export default function NewTransactionPage() {
                                         <Input
                                             label="Monto en Bs"
                                             type="number"
+                                            inputMode="decimal"
+                                            step="0.01"
                                             placeholder="0.00"
                                             value={formData.amountBs}
                                             onChange={(e) => handleAmountBsChange(e.target.value)}
@@ -728,7 +740,7 @@ export default function NewTransactionPage() {
                             <div>
                                 <p className="text-sm font-medium text-yellow-900">Importante</p>
                                 <p className="text-xs text-yellow-800 mt-1">
-                                    Solo usa una tasa personalizada si el administrador la ha autorizado previamente. 
+                                    Solo usa una tasa personalizada si el administrador la ha autorizado previamente.
                                     Esta tasa se aplicará a esta transacción específica.
                                 </p>
                             </div>
@@ -749,6 +761,7 @@ export default function NewTransactionPage() {
                         </label>
                         <input
                             type="number"
+                            inputMode="decimal"
                             step="0.01"
                             value={customRate}
                             onChange={(e) => setCustomRate(e.target.value)}

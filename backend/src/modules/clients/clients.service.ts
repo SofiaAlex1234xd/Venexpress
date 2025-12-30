@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Client } from './entities/client.entity';
@@ -13,6 +13,15 @@ export class ClientsService {
   ) { }
 
   async create(createClientDto: CreateClientDto, vendedorId: number): Promise<Client> {
+    // Verificar si ya existe un cliente con el mismo teléfono
+    const existingClient = await this.clientsRepository.findOne({
+      where: { phone: createClientDto.phone }
+    });
+
+    if (existingClient) {
+      throw new ConflictException(`Ya existe un cliente registrado con el teléfono ${createClientDto.phone}`);
+    }
+
     const client = this.clientsRepository.create({
       ...createClientDto,
       vendedor: { id: vendedorId } as any,
@@ -65,6 +74,11 @@ export class ClientsService {
     const client = await this.findOne(id);
     Object.assign(client, updateClientDto);
     return this.clientsRepository.save(client);
+  }
+
+  async remove(id: number): Promise<void> {
+    const client = await this.findOne(id);
+    await this.clientsRepository.softRemove(client);
   }
 }
 

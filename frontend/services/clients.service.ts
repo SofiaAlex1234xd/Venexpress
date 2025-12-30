@@ -22,4 +22,8 @@ export const clientsService = {
         const response = await api.patch<Client>(`/clients/${id}`, data);
         return response.data;
     },
+
+    async deleteClient(id: number): Promise<void> {
+        await api.delete(`/clients/${id}`);
+    },
 };

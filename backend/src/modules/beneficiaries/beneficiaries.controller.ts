@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Delete,
   UseGuards,
   Query,
 } from '@nestjs/common';
@@ -17,7 +18,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @Controller('beneficiaries')
 @UseGuards(JwtAuthGuard)
 export class BeneficiariesController {
-  constructor(private readonly beneficiariesService: BeneficiariesService) {}
+  constructor(private readonly beneficiariesService: BeneficiariesService) { }
 
   @Post()
   create(
@@ -40,6 +41,11 @@ export class BeneficiariesController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateBeneficiaryDto: UpdateBeneficiaryDto) {
     return this.beneficiariesService.update(+id, updateBeneficiaryDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.beneficiariesService.remove(+id);
   }
 }
 

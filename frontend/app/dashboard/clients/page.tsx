@@ -101,6 +101,32 @@ export default function ClientsPage() {
         setIsModalOpen(true);
     };
 
+    const handleDeleteClient = (client: Client) => {
+        setConfirmState({
+            isOpen: true,
+            message: `¿Estás seguro de que deseas eliminar al cliente ${client.name}? Esta acción no se puede deshacer de forma manual.`,
+            onConfirm: async () => {
+                try {
+                    await clientsService.deleteClient(client.id);
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setAlertState({
+                        isOpen: true,
+                        message: 'Cliente eliminado correctamente',
+                        variant: 'success'
+                    });
+                    loadClients();
+                } catch (error) {
+                    console.error('Error deleting client:', error);
+                    setAlertState({
+                        isOpen: true,
+                        message: 'Error al eliminar el cliente',
+                        variant: 'error'
+                    });
+                }
+            }
+        });
+    };
+
     const validateForm = (): boolean => {
         const errors: Record<string, string> = {};
 
@@ -257,6 +283,12 @@ export default function ClientsPage() {
                                                     >
                                                         Editar
                                                     </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClient(client)}
+                                                        className="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                                    >
+                                                        Eliminar
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -282,6 +314,7 @@ export default function ClientsPage() {
                                     <div className="mt-3 flex items-center justify-end gap-3">
                                         <button onClick={() => handleViewDetails(client)} className="text-purple-600 hover:text-purple-900">Ver detalles</button>
                                         <button onClick={() => openEditModal(client)} className="text-blue-600 hover:text-blue-900">Editar</button>
+                                        <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900">Eliminar</button>
                                     </div>
                                 </div>
                             ))}
@@ -310,8 +343,8 @@ export default function ClientsPage() {
                                         key={page}
                                         onClick={() => setCurrentPage(page)}
                                         className={`px-3 py-2 text-sm font-medium rounded-lg ${currentPage === page
-                                                ? 'bg-blue-600 text-white'
-                                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
                                             }`}
                                     >
                                         {page}
@@ -355,6 +388,8 @@ export default function ClientsPage() {
                     <Input
                         label="Teléfono"
                         placeholder="+57 300 123 4567"
+                        type="tel"
+                        inputMode="tel"
                         value={formData.phone}
                         onChange={(e) => {
                             // Permitir solo números, espacios, guiones, paréntesis y el símbolo +
@@ -367,6 +402,9 @@ export default function ClientsPage() {
                     <Input
                         label="Documento (opcional)"
                         placeholder="1234567890"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={formData.documentId}
                         onChange={(e) => setFormData({ ...formData, documentId: e.target.value })}
                         error={formErrors.documentId}

@@ -50,6 +50,7 @@ export default function BeneficiariesPage() {
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
+    const [clientSearch, setClientSearch] = useState('');
     const [alertState, setAlertState] = useState<{ isOpen: boolean; message: string; variant?: 'error' | 'success' | 'warning' | 'info' }>({
         isOpen: false,
         message: '',
@@ -142,14 +143,41 @@ export default function BeneficiariesPage() {
             isPagoMovil: beneficiary.isPagoMovil || false,
             clientColombiaId: beneficiary.clientColombia?.id || '',
         });
+        setClientSearch('');
         setFormErrors({});
         setIsModalOpen(true);
+    };
+
+    const handleDeleteBeneficiary = (beneficiary: Beneficiary) => {
+        setConfirmState({
+            isOpen: true,
+            message: `¿Estás seguro de que deseas eliminar al destinatario ${beneficiary.fullName}? Esta acción no se puede deshacer de forma manual.`,
+            onConfirm: async () => {
+                try {
+                    await beneficiariesService.deleteBeneficiary(beneficiary.id);
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setAlertState({
+                        isOpen: true,
+                        message: 'Destinatario eliminado correctamente',
+                        variant: 'success'
+                    });
+                    loadData();
+                } catch (error) {
+                    console.error('Error deleting beneficiary:', error);
+                    setAlertState({
+                        isOpen: true,
+                        message: 'Error al eliminar el destinatario',
+                        variant: 'error'
+                    });
+                }
+            }
+        });
     };
 
     const validateForm = (): boolean => {
         const errors: Record<string, string> = {};
 
-        if (!formData.fullName.trim()) {
+        if (!formData.isPagoMovil && !formData.fullName.trim()) {
             errors.fullName = 'El nombre es requerido';
         }
 
@@ -336,6 +364,9 @@ export default function BeneficiariesPage() {
                                                     <button onClick={() => openEditModal(beneficiary)} className="text-blue-600 hover:text-blue-900 whitespace-nowrap">
                                                         Editar
                                                     </button>
+                                                    <button onClick={() => handleDeleteBeneficiary(beneficiary)} className="text-red-600 hover:text-red-900 whitespace-nowrap">
+                                                        Eliminar
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -360,6 +391,7 @@ export default function BeneficiariesPage() {
                                         <div className="flex gap-3">
                                             <button onClick={() => handleViewDetails(beneficiary)} className="text-purple-600 hover:text-purple-900">Ver detalles</button>
                                             <button onClick={() => openEditModal(beneficiary)} className="text-blue-600 hover:text-blue-900">Editar</button>
+                                            <button onClick={() => handleDeleteBeneficiary(beneficiary)} className="text-red-600 hover:text-red-900">Eliminar</button>
                                         </div>
                                     </div>
                                 </div>
@@ -438,16 +470,19 @@ export default function BeneficiariesPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input
-                            label="Nombre completo *"
-                            placeholder="Ej: María González"
+                            label={formData.isPagoMovil ? "Nombre (Auto-generado)" : "Nombre completo *"}
+                            placeholder={formData.isPagoMovil ? "Se generará automáticamente" : "Ej: María González"}
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                             error={formErrors.fullName}
+                            disabled={formData.isPagoMovil}
                         />
 
                         <Input
                             label="Cédula *"
                             placeholder="V-12345678"
+                            type="text"
+                            inputMode="text" // Combinado letras y números
                             value={formData.documentId}
                             onChange={(e) => setFormData({ ...formData, documentId: e.target.value })}
                             error={formErrors.documentId}
@@ -482,6 +517,8 @@ export default function BeneficiariesPage() {
                             <Input
                                 label="Teléfono Pago Móvil *"
                                 placeholder="04121234567 (11 dígitos, formato: 04XXXXXXXXX)"
+                                type="tel"
+                                inputMode="tel"
                                 value={formData.phone}
                                 onChange={(e) => {
                                     // Permitir solo números, espacios, guiones, paréntesis y +
@@ -500,6 +537,9 @@ export default function BeneficiariesPage() {
                             <Input
                                 label="Número de cuenta (20 dígitos) *"
                                 placeholder="01020123456789012345"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={formData.accountNumber}
                                 onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
                                 error={formErrors.accountNumber}
@@ -522,6 +562,8 @@ export default function BeneficiariesPage() {
                             <Input
                                 label="Teléfono (opcional)"
                                 placeholder="+57 300 123 4567"
+                                type="tel"
+                                inputMode="tel"
                                 value={formData.phone}
                                 onChange={(e) => {
                                     const value = e.target.value.replace(/[^\d\s\-\(\)\+]/g, '');
@@ -536,17 +578,60 @@ export default function BeneficiariesPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Cliente asociado *
                         </label>
-                        <select
-                            value={formData.clientColombiaId}
-                            onChange={(e) => setFormData({ ...formData, clientColombiaId: e.target.value })}
-                            className={`w-full px-4 py-2.5 border-2 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none ${formErrors.clientColombiaId ? 'border-red-500' : 'border-gray-200'
-                                }`}
-                        >
-                            <option value="">Selecciona un cliente</option>
-                            {clients.map(client => (
-                                <option key={client.id} value={client.id}>{client.name}</option>
-                            ))}
-                        </select>
+
+                        {/* Buscador de clientes */}
+                        <div className="mb-2">
+                            <input
+                                type="text"
+                                placeholder="Buscar cliente por nombre o teléfono..."
+                                value={clientSearch}
+                                onChange={(e) => setClientSearch(e.target.value)}
+                                className="w-full px-4 py-2 text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 transition-all outline-none"
+                            />
+                        </div>
+
+                        {/* Lista de clientes (Top 3 o Resultados) */}
+                        <div className={`border-2 rounded-xl p-2 max-h-48 overflow-y-auto ${formErrors.clientColombiaId ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                            {(() => {
+                                const filtered = clientSearch.trim() === ''
+                                    ? clients.slice(0, 3)
+                                    : clients.filter(c =>
+                                        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                                        c.phone.includes(clientSearch)
+                                    );
+
+                                if (filtered.length === 0) {
+                                    return <p className="text-center py-4 text-sm text-gray-500">No se encontraron clientes</p>;
+                                }
+
+                                return (
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-gray-400 px-2 uppercase font-bold tracking-wider mb-1">
+                                            {clientSearch.trim() === '' ? 'Últimos 3 creados' : 'Resultados de búsqueda'}
+                                        </p>
+                                        {filtered.map(client => (
+                                            <button
+                                                key={client.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData({ ...formData, clientColombiaId: client.id.toString() });
+                                                    if (clientSearch) setClientSearch('');
+                                                }}
+                                                className={`w-full flex items-center justify-between p-2 rounded-lg text-sm transition-all ${formData.clientColombiaId === client.id.toString()
+                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    : 'bg-white hover:bg-blue-100 text-gray-700'
+                                                    }`}
+                                            >
+                                                <span className="font-medium truncate">{client.name}</span>
+                                                <span className={`text-xs ${formData.clientColombiaId === client.id.toString() ? 'text-blue-100' : 'text-gray-400'}`}>
+                                                    {client.phone}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
                         {formErrors.clientColombiaId && (
                             <p className="mt-1 text-sm text-red-600">{formErrors.clientColombiaId}</p>
                         )}

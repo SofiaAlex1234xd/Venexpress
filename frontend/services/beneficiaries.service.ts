@@ -22,4 +22,8 @@ export const beneficiariesService = {
         const response = await api.patch<Beneficiary>(`/beneficiaries/${id}`, data);
         return response.data;
     },
+
+    async deleteBeneficiary(id: number): Promise<void> {
+        await api.delete(`/beneficiaries/${id}`);
+    },
 };

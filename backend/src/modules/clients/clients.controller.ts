@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Delete,
   UseGuards,
   Query,
 } from '@nestjs/common';
@@ -47,6 +48,12 @@ export class ClientsController {
   @Roles(UserRole.VENDEDOR, UserRole.ADMIN_COLOMBIA)
   update(@Param('id') id: string, @Body() updateClientDto: UpdateClientDto) {
     return this.clientsService.update(+id, updateClientDto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.VENDEDOR, UserRole.ADMIN_COLOMBIA)
+  remove(@Param('id') id: string) {
+    return this.clientsService.remove(+id);
   }
 }
 
