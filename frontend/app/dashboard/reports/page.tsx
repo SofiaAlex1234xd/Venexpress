@@ -383,8 +383,8 @@ export default function ReportsPage() {
                         </Card>
                     </div>
 
-                    {/* Chart - Simple Bar Chart */}
-                    {reportData.chartData.length > 0 && (
+                    {/* Chart - Simple Bar Chart - Solo mostrar si el rango es mayor a 1 día */}
+                    {reportData.chartData.length > 1 && startDate !== endDate && (
                         <Card>
                             <h3 className="text-lg font-semibold text-gray-900 mb-6">Transacciones por Día</h3>
                             <div className="space-y-4">
@@ -413,8 +413,8 @@ export default function ReportsPage() {
                         </Card>
                     )}
 
-                    {/* Daily Details Table */}
-                    {reportData.chartData.length > 0 && (
+                    {/* Daily Details Table - Solo mostrar si el rango es mayor a 1 día */}
+                    {reportData.chartData.length > 1 && startDate !== endDate && (
                         <Card>
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Detalle por Día</h3>
                             <div className="overflow-x-auto">

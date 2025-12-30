@@ -161,8 +161,13 @@ export class UsersService {
       dateFrom.setDate(1);
       dateFrom.setHours(0, 0, 0, 0);
     } else if (period === 'custom' && startDate && endDate) {
-      dateFrom = new Date(startDate);
-      dateTo = new Date(endDate);
+      // Parsear fechas en zona horaria local
+      const [yearFrom, monthFrom, dayFrom] = startDate.split('-').map(Number);
+      dateFrom = new Date(yearFrom, monthFrom - 1, dayFrom);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      const [yearTo, monthTo, dayTo] = endDate.split('-').map(Number);
+      dateTo = new Date(yearTo, monthTo - 1, dayTo);
       dateTo.setHours(23, 59, 59, 999);
     } else {
       dateFrom = new Date(0);
@@ -213,8 +218,13 @@ export class UsersService {
       dateFrom.setDate(1);
       dateFrom.setHours(0, 0, 0, 0);
     } else if (period === 'custom' && startDate && endDate) {
-      dateFrom = new Date(startDate);
-      dateTo = new Date(endDate);
+      // Parsear fechas en zona horaria local
+      const [yearFrom, monthFrom, dayFrom] = startDate.split('-').map(Number);
+      dateFrom = new Date(yearFrom, monthFrom - 1, dayFrom);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      const [yearTo, monthTo, dayTo] = endDate.split('-').map(Number);
+      dateTo = new Date(yearTo, monthTo - 1, dayTo);
       dateTo.setHours(23, 59, 59, 999);
     } else {
       dateFrom = new Date(0);

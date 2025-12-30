@@ -16,6 +16,16 @@ import { VenezuelaPayment } from './entities/venezuela-payment.entity';
 import { CreateVenezuelaPaymentDto } from './dto/create-venezuela-payment.dto';
 import { VenezuelaDebtSummary, TransactionDebtDetail, VenezuelaPaymentDetail } from './dto/venezuela-debt-detail.dto';
 
+/**
+ * Parsea una fecha en formato YYYY-MM-DD a un objeto Date en zona horaria local
+ * Evita problemas de interpretación UTC
+ */
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  // month - 1 porque los meses en Date son 0-indexados
+  return new Date(year, month - 1, day);
+}
+
 @Injectable()
 export class TransactionsService {
   constructor(
@@ -243,10 +253,10 @@ export class TransactionsService {
       throw new ForbiddenException('Solo los vendedores pueden marcar transacciones como pagadas');
     }
 
-    const start = new Date(startDate);
+    const start = parseLocalDate(startDate);
     start.setHours(0, 0, 0, 0);
 
-    const end = new Date(endDate);
+    const end = parseLocalDate(endDate);
     end.setHours(23, 59, 59, 999);
 
     const result = await this.transactionsRepository.update(
@@ -501,8 +511,9 @@ export class TransactionsService {
       dateFrom.setHours(0, 0, 0, 0);
     } else if (period === 'custom' && startDate && endDate) {
       // Rango personalizado
-      dateFrom = new Date(startDate);
-      dateTo = new Date(endDate);
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999); // Hasta el final del día
     } else {
       // Por defecto, mostrar todo
@@ -568,8 +579,9 @@ export class TransactionsService {
       dateFrom.setDate(1);
       dateFrom.setHours(0, 0, 0, 0);
     } else if (period === 'custom' && startDate && endDate) {
-      dateFrom = new Date(startDate);
-      dateTo = new Date(endDate);
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
     } else {
       dateFrom = new Date(0);
@@ -720,10 +732,12 @@ export class TransactionsService {
 
     // Filter by date range
     if (startDate) {
-      queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: new Date(startDate) });
+      const start = parseLocalDate(startDate);
+      start.setHours(0, 0, 0, 0);
+      queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: start });
     }
     if (endDate) {
-      const end = new Date(endDate);
+      const end = parseLocalDate(endDate);
       end.setHours(23, 59, 59, 999);
       queryBuilder.andWhere('transaction.createdAt <= :endDate', { endDate: end });
     }
@@ -736,14 +750,21 @@ export class TransactionsService {
   async getReports(query: any): Promise<any> {
     const { startDate, endDate } = query;
 
-    let dateFrom = new Date();
-    dateFrom.setDate(dateFrom.getDate() - 30); // Default: last 30 days
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) dateFrom = new Date(startDate);
-    if (endDate) {
-      dateTo = new Date(endDate);
+    if (startDate && endDate) {
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: last 30 days
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
+      dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - 30);
+      dateFrom.setHours(0, 0, 0, 0);
     }
 
     // Get all transactions in the date range
@@ -768,16 +789,22 @@ export class TransactionsService {
     const totalCOP = completedTransactions.reduce((sum, t) => sum + Number(t.amountCOP), 0);
     const totalBs = completedTransactions.reduce((sum, t) => sum + Number(t.amountBs), 0);
 
-    // Group by day for chart data
+    // Group by day for chart data (usando fecha local, no UTC)
     const dailyData: { [key: string]: { cop: number; bs: number; count: number } } = {};
     completedTransactions.forEach(t => {
-      const day = new Date(t.createdAt).toISOString().split('T')[0];
-      if (!dailyData[day]) {
-        dailyData[day] = { cop: 0, bs: 0, count: 0 };
+      // Obtener fecha en formato local YYYY-MM-DD
+      const date = new Date(t.createdAt);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dayKey = `${year}-${month}-${day}`;
+      
+      if (!dailyData[dayKey]) {
+        dailyData[dayKey] = { cop: 0, bs: 0, count: 0 };
       }
-      dailyData[day].cop += Number(t.amountCOP);
-      dailyData[day].bs += Number(t.amountBs);
-      dailyData[day].count += 1;
+      dailyData[dayKey].cop += Number(t.amountCOP);
+      dailyData[dayKey].bs += Number(t.amountBs);
+      dailyData[dayKey].count += 1;
     });
 
     const chartData = Object.entries(dailyData)
@@ -805,14 +832,21 @@ export class TransactionsService {
   async getReportsCSV(query: any): Promise<any> {
     const { startDate, endDate } = query;
 
-    let dateFrom = new Date();
-    dateFrom.setDate(dateFrom.getDate() - 30);
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) dateFrom = new Date(startDate);
-    if (endDate) {
-      dateTo = new Date(endDate);
+    if (startDate && endDate) {
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      dateTo = parseLocalDate(endDate);
       dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: last 30 days
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
+      dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - 30);
+      dateFrom.setHours(0, 0, 0, 0);
     }
 
     // Get completed transactions with vendor info
@@ -869,14 +903,21 @@ export class TransactionsService {
   async getAdminColombiaFinancialSummary(query: any): Promise<any> {
     const { startDate, endDate } = query;
 
-    let dateFrom = new Date(0);
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) {
-      dateFrom = new Date(`${startDate}T00:00:00`);
-    }
-    if (endDate) {
-      dateTo = new Date(`${endDate}T23:59:59.999`);
+    if (startDate && endDate) {
+      // Crear fechas en la zona horaria local del servidor
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: desde el principio hasta hoy
+      dateFrom = new Date(0);
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
     }
 
     const transactions = await this.transactionsRepository.find({
@@ -981,14 +1022,21 @@ export class TransactionsService {
   async getAdminVenezuelaFinancialSummary(query: any): Promise<any> {
     const { startDate, endDate } = query;
 
-    let dateFrom = new Date(0);
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) {
-      dateFrom = new Date(`${startDate}T00:00:00`);
-    }
-    if (endDate) {
-      dateTo = new Date(`${endDate}T23:59:59.999`);
+    if (startDate && endDate) {
+      // Crear fechas en la zona horaria local del servidor
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: desde el principio hasta hoy
+      dateFrom = new Date(0);
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
     }
 
     const transactions = await this.transactionsRepository.find({
@@ -1168,7 +1216,11 @@ export class TransactionsService {
 
     // Aplicar filtros de fecha si existen
     if (startDate && endDate) {
-      whereConditions.createdAt = Between(new Date(startDate), new Date(endDate));
+      const dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      const dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+      whereConditions.createdAt = Between(dateFrom, dateTo);
     }
 
     // Obtener todas las transacciones del vendedor con el filtro de fecha
@@ -1334,13 +1386,15 @@ export class TransactionsService {
 
     // Filter by date range
     if (startDate) {
-      // Forzar inicio del día
-      const start = new Date(`${startDate}T00:00:00`);
+      // Forzar inicio del día en zona horaria local
+      const start = parseLocalDate(startDate);
+      start.setHours(0, 0, 0, 0);
       queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: start });
     }
     if (endDate) {
-      // Forzar final del día
-      const end = new Date(`${endDate}T23:59:59.999`);
+      // Forzar final del día en zona horaria local
+      const end = parseLocalDate(endDate);
+      end.setHours(23, 59, 59, 999);
       queryBuilder.andWhere('transaction.createdAt <= :endDate', { endDate: end });
     }
 
@@ -1352,20 +1406,34 @@ export class TransactionsService {
   async getReportsAdminColombia(query: any): Promise<any> {
     const { startDate, endDate, vendorId } = query;
 
-    let dateFrom = new Date();
-    dateFrom.setDate(dateFrom.getDate() - 30); // Default: last 30 days
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) dateFrom = new Date(`${startDate}T00:00:00`);
-    if (endDate) {
-      dateTo = new Date(`${endDate}T23:59:59.999`);
+    if (startDate && endDate) {
+      // Crear fechas en la zona horaria local del servidor
+      // Asegurar que cubran el día completo
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: last 30 days
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
+      dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - 30);
+      dateFrom.setHours(0, 0, 0, 0);
     }
 
     // Build query
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
-      .where('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+      .where('transaction.createdAt >= :dateFrom AND transaction.createdAt <= :dateTo', { 
+        dateFrom, 
+        dateTo 
+      });
 
     // Filter by vendor if provided
     if (vendorId) {
@@ -1390,16 +1458,22 @@ export class TransactionsService {
     const totalCOP = completedTransactions.reduce((sum, t) => sum + Number(t.amountCOP), 0);
     const totalBs = completedTransactions.reduce((sum, t) => sum + Number(t.amountBs), 0);
 
-    // Group by day for chart data
+    // Group by day for chart data (usando fecha local, no UTC)
     const dailyData: { [key: string]: { cop: number; bs: number; count: number } } = {};
     completedTransactions.forEach(t => {
-      const day = new Date(t.createdAt).toISOString().split('T')[0];
-      if (!dailyData[day]) {
-        dailyData[day] = { cop: 0, bs: 0, count: 0 };
+      // Obtener fecha en formato local YYYY-MM-DD
+      const date = new Date(t.createdAt);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dayKey = `${year}-${month}-${day}`;
+      
+      if (!dailyData[dayKey]) {
+        dailyData[dayKey] = { cop: 0, bs: 0, count: 0 };
       }
-      dailyData[day].cop += Number(t.amountCOP);
-      dailyData[day].bs += Number(t.amountBs);
-      dailyData[day].count += 1;
+      dailyData[dayKey].cop += Number(t.amountCOP);
+      dailyData[dayKey].bs += Number(t.amountBs);
+      dailyData[dayKey].count += 1;
     });
 
     const chartData = Object.entries(dailyData)
@@ -1463,13 +1537,23 @@ export class TransactionsService {
   async getReportsAdminColombiaCSV(query: any): Promise<any> {
     const { startDate, endDate, vendorId } = query;
 
-    let dateFrom = new Date();
-    dateFrom.setDate(dateFrom.getDate() - 30);
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) dateFrom = new Date(`${startDate}T00:00:00`);
-    if (endDate) {
-      dateTo = new Date(`${endDate}T23:59:59.999`);
+    if (startDate && endDate) {
+      // Crear fechas en la zona horaria local del servidor
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: last 30 days
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
+      dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - 30);
+      dateFrom.setHours(0, 0, 0, 0);
     }
 
     // Build query
@@ -1555,7 +1639,11 @@ export class TransactionsService {
 
     // Filtrar por fecha si se proporciona
     if (setPurchaseRateDto.date) {
-      const startDate = new Date(setPurchaseRateDto.date);
+      // Si date es string, parsearlo correctamente; si es Date, usarlo directamente
+      const dateStr = typeof setPurchaseRateDto.date === 'string' 
+        ? setPurchaseRateDto.date 
+        : setPurchaseRateDto.date.toISOString().split('T')[0];
+      const startDate = parseLocalDate(dateStr);
       startDate.setHours(0, 0, 0, 0);
 
       const endDate = new Date(startDate);
@@ -1627,13 +1715,13 @@ export class TransactionsService {
 
     // Filtrar por rango de fechas
     if (query.startDate) {
-      const startDate = new Date(query.startDate);
+      const startDate = parseLocalDate(query.startDate);
       startDate.setHours(0, 0, 0, 0);
       queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate });
     }
 
     if (query.endDate) {
-      const endDate = new Date(query.endDate);
+      const endDate = parseLocalDate(query.endDate);
       endDate.setHours(23, 59, 59, 999);
       queryBuilder.andWhere('transaction.createdAt <= :endDate', { endDate });
     }
@@ -1662,14 +1750,21 @@ export class TransactionsService {
 
     const { startDate, endDate } = query;
 
-    let dateFrom = new Date(0);
-    let dateTo = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
 
-    if (startDate) {
-      dateFrom = new Date(`${startDate}T00:00:00`);
-    }
-    if (endDate) {
-      dateTo = new Date(`${endDate}T23:59:59.999`);
+    if (startDate && endDate) {
+      // Crear fechas en la zona horaria local del servidor
+      dateFrom = parseLocalDate(startDate);
+      dateFrom.setHours(0, 0, 0, 0);
+      
+      dateTo = parseLocalDate(endDate);
+      dateTo.setHours(23, 59, 59, 999);
+    } else {
+      // Default: desde el principio hasta hoy
+      dateFrom = new Date(0);
+      dateTo = new Date();
+      dateTo.setHours(23, 59, 59, 999);
     }
 
     // Obtener transacciones completadas con tasa de compra establecida
@@ -1769,7 +1864,7 @@ export class TransactionsService {
       amount: createPaymentDto.amount,
       notes: createPaymentDto.notes,
       proofUrl: createPaymentDto.proofUrl,
-      paymentDate: new Date(createPaymentDto.paymentDate),
+      paymentDate: parseLocalDate(createPaymentDto.paymentDate),
       createdBy: { id: user.id } as any,
     });
 

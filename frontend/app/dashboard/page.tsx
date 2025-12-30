@@ -49,9 +49,8 @@ export default function DashboardPage() {
             if (user?.role === 'admin_venezuela') {
                 // Para admin_venezuela, cargar giros pendientes y ganancias de hoy
                 const pendingTransfers = await transactionsService.getPendingVenezuela();
-                const reports = await transactionsService.getReports();
-                
                 const today = getLocalDateString();
+                const reports = await transactionsService.getReports(today, today);
                 const financialSummary = await transactionsService.getAdminVenezuelaFinancialSummary(today, today);
 
                 setStats({
@@ -65,9 +64,8 @@ export default function DashboardPage() {
             } else if (user?.role === 'admin_colombia') {
                 // Para admin_colombia, cargar datos consolidados de todos los vendedores y ganancias de hoy
                 const pendingTransfers = await transactionsService.getPendingAdminColombia();
-                const reports = await transactionsService.getReportsAdminColombia();
-                
                 const today = getLocalDateString();
+                const reports = await transactionsService.getReportsAdminColombia(today, today);
                 const financialSummary = await transactionsService.getAdminColombiaFinancialSummary(today, today);
 
                 setStats({
