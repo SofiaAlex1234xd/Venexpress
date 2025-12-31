@@ -34,7 +34,6 @@ export class BeneficiariesService {
 
   private async validateDuplicate(dto: CreateBeneficiaryDto | UpdateBeneficiaryDto, excludeId?: number) {
     const where: any = {
-      fullName: dto.fullName,
       documentId: dto.documentId,
       bankName: dto.bankName,
       isPagoMovil: dto.isPagoMovil,
@@ -56,7 +55,9 @@ export class BeneficiariesService {
     const duplicate = await query.getOne();
 
     if (duplicate) {
-      throw new ConflictException(`Ya existe un destinatario registrado con estos mismos datos (${dto.fullName})`);
+      throw new ConflictException(`Ya existe un destinatario con el mismo documento y ${
+        dto.isPagoMovil ? 'teléfono' : 'número de cuenta'
+      } en este banco`);
     }
   }
 
