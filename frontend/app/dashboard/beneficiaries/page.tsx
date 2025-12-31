@@ -30,6 +30,7 @@ const VENEZUELAN_BANKS = [
     { code: '0137', name: 'SOFITASA' },
     { code: '0168', name: 'BANCRECER' },
     { code: '0174', name: 'BANPLUS' },
+    { code: '0172', name: 'BANCAMIGA' },
 ];
 
 export default function BeneficiariesPage() {
@@ -528,14 +529,57 @@ export default function BeneficiariesPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input
-                            label={formData.isPagoMovil ? "Nombre (Auto-generado)" : "Nombre completo *"}
-                            placeholder={formData.isPagoMovil ? "Se generará automáticamente" : "Ej: María González"}
-                            value={formData.fullName}
-                            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                            error={formErrors.fullName}
-                            disabled={formData.isPagoMovil}
-                        />
+                        <div>
+                            <Input
+                                label={formData.isPagoMovil ? "Nombre (Auto-generado)" : "Nombre completo *"}
+                                placeholder={formData.isPagoMovil ? "Se generará automáticamente" : "Ej: María González"}
+                                value={formData.fullName}
+                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                error={formErrors.fullName}
+                                disabled={formData.isPagoMovil && !formData.fullName.trim()}
+                            />
+                            {formData.isPagoMovil && (
+                                <>
+                                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-xs font-medium text-blue-700 mb-1">Vista previa del nombre:</p>
+                                        <p className="text-sm font-semibold text-blue-900">
+                                            {(() => {
+                                                const client = clients.find(c => c.id === Number(formData.clientColombiaId));
+                                                const clientName = client ? client.name : 'Cliente no seleccionado';
+                                                const lastFourDoc = formData.documentId.slice(-4) || '____';
+                                                return `Pago Movil (${clientName}) ${lastFourDoc}`;
+                                            })()}
+                                        </p>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            {formData.fullName.trim() ? 'Usando nombre personalizado' : 'Usando nombre autogenerado'}
+                                        </p>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="editName"
+                                            checked={!formData.fullName.trim() ? false : true}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    // Habilitar edición: poner el autogenerado como base
+                                                    const client = clients.find(c => c.id === Number(formData.clientColombiaId));
+                                                    const clientName = client ? client.name : 'Cliente';
+                                                    const lastFourDoc = formData.documentId.slice(-4) || '____';
+                                                    setFormData({ ...formData, fullName: `Pago Movil (${clientName}) ${lastFourDoc}` });
+                                                } else {
+                                                    // Deshabilitar edición: limpiar el campo
+                                                    setFormData({ ...formData, fullName: '' });
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                        <label htmlFor="editName" className="text-xs font-medium text-gray-700 cursor-pointer">
+                                            Editar nombre manualmente
+                                        </label>
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
                         <Input
                             label="Cédula *"
