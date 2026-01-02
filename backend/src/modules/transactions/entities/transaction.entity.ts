@@ -124,5 +124,8 @@ export class Transaction {
 
   @Column({ type: 'timestamptz', nullable: true })
   lastEditedAt: Date;
+
+  @Column({ type: 'boolean', default: false, name: 'has_custom_rate' })
+  hasCustomRate: boolean; // Indica si el vendedor usó una tasa personalizada
 }
 

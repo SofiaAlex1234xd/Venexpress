@@ -67,6 +67,7 @@ export class TransactionsService {
     let amountCOP: number;
     let amountBs: number;
     const rateToUse = createTransactionDto.customRate || currentRate.saleRate;
+    const hasCustomRate = !!createTransactionDto.customRate; // Bandera para tasa personalizada
 
     if (createTransactionDto.amountCOP) {
       amountCOP = createTransactionDto.amountCOP;
@@ -83,6 +84,7 @@ export class TransactionsService {
       amountCOP,
       amountBs,
       saleRate: rateToUse,
+      hasCustomRate, // Agregar la bandera
       createdBy: { id: user.id } as any,
       beneficiary: { id: beneficiary.id } as any,
 

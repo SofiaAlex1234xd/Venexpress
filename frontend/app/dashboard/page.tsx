@@ -32,12 +32,28 @@ export default function DashboardPage() {
     useEffect(() => {
         if (user) {
             loadDashboardData();
+        }
+    }, [user]);
 
-            const intervalId = setInterval(() => {
-                loadDashboardData();
-            }, 60_000);
+    // Actualizar solo la tasa cada minuto
+    useEffect(() => {
+        if (user) {
+            const loadCurrentRate = async () => {
+                try {
+                    const rate = await ratesService.getCurrentRate();
+                    setCurrentRate(rate);
+                } catch (error) {
+                    console.error('Error loading current rate:', error);
+                }
+            };
 
-            return () => clearInterval(intervalId);
+            // Cargar inmediatamente
+            loadCurrentRate();
+
+            // Actualizar cada minuto
+            const rateIntervalId = setInterval(loadCurrentRate, 60_000);
+
+            return () => clearInterval(rateIntervalId);
         }
     }, [user]);
 

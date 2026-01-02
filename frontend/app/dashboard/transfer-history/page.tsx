@@ -62,6 +62,11 @@ export default function TransferHistoryPage() {
         return `${amount.toFixed(2)} Bs`;
     };
 
+    // Verificar si una transacción tiene tasa personalizada
+    const hasCustomRate = (transaction: Transaction): boolean => {
+        return transaction.hasCustomRate === true;
+    };
+
     const handleViewDetails = async (transaction: Transaction) => {
         setSelectedTransaction(transaction);
         setVenezuelaProof(null);
@@ -319,12 +324,35 @@ export default function TransferHistoryPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {currentTransactions.map((transaction) => (
-                                        <tr key={transaction.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 text-sm font-medium text-gray-900">#{transaction.id}</td>
+                                    {currentTransactions.map((transaction) => {
+                                        const isCustomRate = hasCustomRate(transaction);
+                                        return (
+                                        <tr 
+                                            key={transaction.id} 
+                                            className={`hover:bg-gray-50 ${isCustomRate ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-400' : ''}`}
+                                        >
+                                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                <div className="flex items-center gap-2">
+                                                    #{transaction.id}
+                                                    {isCustomRate && (
+                                                        <span className="px-2 py-0.5 bg-purple-600 text-white text-xs font-bold rounded-full flex items-center gap-1">
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            TASA PERSONALIZADA
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <div className="text-sm font-medium text-gray-900">{transaction.beneficiaryFullName}</div>
                                                 <div className="text-xs text-gray-500">{transaction.beneficiaryDocumentId}</div>
+                                                {isCustomRate && (
+                                                    <div className="mt-1 p-2 bg-purple-100 border border-purple-300 rounded text-xs">
+                                                        <p className="font-semibold text-purple-900">⚠️ Tasa personalizada aplicada</p>
+                                                        <p className="text-purple-700">Tasa: {transaction.saleRate != null && !isNaN(Number(transaction.saleRate)) ? Number(transaction.saleRate).toFixed(2) : '-'}</p>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-sm text-gray-600">{transaction.beneficiaryBankName}</td>
                                             <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
@@ -366,19 +394,50 @@ export default function TransferHistoryPage() {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
 
                         {/* Mobile Cards */}
                         <div className="lg:hidden space-y-3">
-                            {currentTransactions.map((transaction) => (
-                                <div key={transaction.id} className="border border-gray-200 rounded-xl p-4">
+                            {currentTransactions.map((transaction) => {
+                                const isCustomRate = hasCustomRate(transaction);
+                                return (
+                                <div 
+                                    key={transaction.id} 
+                                    className={`rounded-xl p-4 ${
+                                        isCustomRate 
+                                            ? 'border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50' 
+                                            : 'border border-gray-200'
+                                    }`}
+                                >
+                                    {isCustomRate && (
+                                        <div className="mb-2 px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded-full flex items-center gap-1 w-fit">
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            TASA PERSONALIZADA
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between mb-3">
                                         <span className="font-semibold text-gray-900">#{transaction.id}</span>
                                         <Badge status={transaction.status} />
                                     </div>
+                                    {isCustomRate && (
+                                        <div className="mb-3 p-2 bg-purple-100 border border-purple-300 rounded-lg">
+                                            <div className="flex items-start gap-2">
+                                                <svg className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-purple-900">⚠️ Esta transacción utiliza una tasa personalizada</p>
+                                                    <p className="text-xs text-purple-700 mt-0.5">Tasa aplicada: {transaction.saleRate != null && !isNaN(Number(transaction.saleRate)) ? Number(transaction.saleRate).toFixed(2) : '-'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="space-y-2 text-sm">
                                         <div>
                                             <span className="text-gray-500">Beneficiario:</span>
@@ -422,7 +481,8 @@ export default function TransferHistoryPage() {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            );
+                            })}
                         </div>
 
                         {/* Pagination */}

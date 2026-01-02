@@ -24,6 +24,7 @@ const REJECTION_REASONS = [
 export default function PendingTransfersPage() {
     const { user, loading: authLoading } = useAuth();
     const isAdminColombia = user?.role === 'admin_colombia';
+    const isAdminVenezuela = user?.role === 'admin_venezuela';
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -224,6 +225,14 @@ export default function PendingTransfersPage() {
         return `${amount.toFixed(2)} Bs`;
     };
 
+    // Verificar si una transacción tiene tasa personalizada
+    const hasCustomRate = (transaction: Transaction): boolean => {
+        if (!isAdminVenezuela) {
+            return false;
+        }
+        return transaction.hasCustomRate === true;
+    };
+
     const handleCopyToClipboard = (transactionToCopy?: any) => {
         const tx = transactionToCopy && transactionToCopy.id ? transactionToCopy : selectedTransaction;
         if (!tx) return;
@@ -347,8 +356,25 @@ export default function PendingTransfersPage() {
                 ) : (
                     <>
                         <div className="space-y-4">
-                            {transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((transaction) => (
-                                <div key={transaction.id} className="relative border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                            {transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((transaction) => {
+                                const isCustomRate = hasCustomRate(transaction);
+                                return (
+                                <div 
+                                    key={transaction.id} 
+                                    className={`relative rounded-xl p-4 hover:shadow-md transition-shadow ${
+                                        isCustomRate 
+                                            ? 'border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50' 
+                                            : 'border border-gray-200'
+                                    }`}
+                                >
+                                    {isCustomRate && (
+                                        <div className="absolute top-2 left-2 sm:top-4 sm:left-4 px-3 py-1 bg-purple-600 text-white text-xs font-bold rounded-full flex items-center gap-1 z-10">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            TASA PERSONALIZADA
+                                        </div>
+                                    )}
                                     <button
                                         onClick={() => handleCopyToClipboard(transaction)}
                                         className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all z-10"
@@ -358,6 +384,23 @@ export default function PendingTransfersPage() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                                         </svg>
                                     </button>
+                                    {isCustomRate && (
+                                        <div className="mb-3 p-3 bg-purple-100 border border-purple-300 rounded-lg">
+                                            <div className="flex items-start gap-2">
+                                                <svg className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-purple-900">
+                                                        ⚠️ Esta transacción utiliza una tasa personalizada
+                                                    </p>
+                                                    <p className="text-xs text-purple-700 mt-1">
+                                                        Tasa aplicada: <span className="font-bold">{transaction.saleRate != null && !isNaN(Number(transaction.saleRate)) ? Number(transaction.saleRate).toFixed(2) : '-'}</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                                         {/* Transaction Info */}
                                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -448,7 +491,8 @@ export default function PendingTransfersPage() {
                                         )}
                                     </div>
                                 </div>
-                            ))}
+                            );
+                            })}
                         </div>
 
                         {/* Pagination */}

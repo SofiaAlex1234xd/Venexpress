@@ -147,7 +147,14 @@ export default function NewTransactionPage() {
     };
 
     const handleOpenCustomRateModal = () => {
-        setCustomRate(currentRate ? currentRate.saleRate.toString() : '');
+        if (currentRate) {
+            const rateValue = typeof currentRate.saleRate === 'number'
+                ? currentRate.saleRate
+                : parseFloat(String(currentRate.saleRate));
+            setCustomRate(rateValue.toFixed(2));
+        } else {
+            setCustomRate('');
+        }
         setCustomRateConfirmed(false);
         setIsCustomRateModalOpen(true);
     };

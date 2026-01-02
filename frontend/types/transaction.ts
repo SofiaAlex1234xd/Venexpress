@@ -59,6 +59,7 @@ export interface Transaction {
     vendorPaymentMethod?: 'efectivo' | 'consignacion_nequi' | 'consignacion_bancolombia';
     isCommissionPaidToVendor?: boolean;
     commissionPaidAt?: string;
+    hasCustomRate?: boolean; // Indica si el vendedor usó una tasa personalizada
     createdAt: string;
     updatedAt: string;
     lastEditedAt?: string;

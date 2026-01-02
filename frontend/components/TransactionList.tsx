@@ -249,6 +249,47 @@ export default function TransactionList({
                                         <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
                                     </svg>
                                 </button>
+                                {(() => {
+                                    const maxVisible = 3;
+                                    const halfVisible = Math.floor(maxVisible / 2);
+                                    let startPage = Math.max(1, pagination.page - halfVisible);
+                                    let endPage = Math.min(pagination.lastPage, startPage + maxVisible - 1);
+                                    
+                                    if (endPage - startPage < maxVisible - 1) {
+                                        startPage = Math.max(1, endPage - maxVisible + 1);
+                                    }
+                                    
+                                    const pages = [];
+                                    if (startPage > 1) {
+                                        pages.push(1);
+                                        if (startPage > 2) pages.push('...');
+                                    }
+                                    for (let i = startPage; i <= endPage; i++) {
+                                        pages.push(i);
+                                    }
+                                    if (endPage < pagination.lastPage) {
+                                        if (endPage < pagination.lastPage - 1) pages.push('...');
+                                        pages.push(pagination.lastPage);
+                                    }
+                                    
+                                    return pages.map((page, idx) => (
+                                        page === '...' ? (
+                                            <span key={`ellipsis-${idx}`} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300">...</span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                onClick={() => onPageChange(page as number)}
+                                                className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${
+                                                    pagination.page === page
+                                                        ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                                                        : 'text-gray-900'
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    ));
+                                })()}
                                 <button
                                     onClick={() => onPageChange(pagination.page + 1)}
                                     disabled={pagination.page === pagination.lastPage}
