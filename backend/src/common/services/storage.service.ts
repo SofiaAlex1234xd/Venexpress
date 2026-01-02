@@ -76,8 +76,15 @@ export class StorageService {
         const extension = extname(file.originalname).toLowerCase() || this.getExtensionFromMimeType(file.mimetype);
         const fileName = `${type}-${timestamp}-${randomSuffix}${extension}`;
 
-        // Estructura de carpetas: transactions/{transactionId}/{fileName}
-        const filePath = `transactions/${transactionId}/${fileName}`;
+        // Estructura de carpetas: 
+        // - Para pagos de Venezuela: venezuela-payments/{paymentId}/{fileName}
+        // - Para transacciones: transactions/{transactionId}/{fileName}
+        let filePath: string;
+        if (typeof transactionId === 'string' && transactionId.startsWith('venezuela-payment-')) {
+            filePath = `venezuela-payments/${transactionId}/${fileName}`;
+        } else {
+            filePath = `transactions/${transactionId}/${fileName}`;
+        }
 
         this.logger.log(`Uploading file to: ${filePath}`);
 

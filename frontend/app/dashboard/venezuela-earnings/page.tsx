@@ -370,6 +370,7 @@ export default function VenezuelaEarningsPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pagado por</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Comprobante</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -383,6 +384,24 @@ export default function VenezuelaEarningsPage() {
                           ${payment.amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500">{payment.notes || '-'}</td>
+                        <td className="px-4 py-3 text-center">
+                          {payment.proofUrl ? (
+                            <a
+                              href={payment.proofUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Ver
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

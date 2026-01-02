@@ -434,11 +434,41 @@ export class TransactionsController {
    */
   @Post('venezuela-debt/payment')
   @Roles(UserRole.ADMIN_COLOMBIA)
-  createVenezuelaPayment(
+  @UseInterceptors(
+    FileInterceptor('proof', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+      fileFilter: (req, file, cb) => {
+        if (file && !file.mimetype.match(/\/(jpg|jpeg|png|pdf)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes y PDFs'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async createVenezuelaPayment(
     @Body() createPaymentDto: CreateVenezuelaPaymentDto,
+    @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: any,
   ) {
-    return this.transactionsService.createVenezuelaPayment(createPaymentDto, user);
+    let proofPath: string | null = null;
+
+    // Si hay archivo, subirlo a Supabase Storage
+    if (file) {
+      // Usar 'venezuela-payment' como tipo y timestamp como ID temporal
+      const timestamp = Date.now();
+      proofPath = await this.storageService.uploadFile(file, `venezuela-payment-${timestamp}`, 'venezuela');
+    }
+
+    // Si se proporcionó proofUrl en el body, usarlo (para compatibilidad)
+    const finalProofUrl = proofPath || createPaymentDto.proofUrl || null;
+
+    return this.transactionsService.createVenezuelaPayment(
+      { ...createPaymentDto, proofUrl: finalProofUrl },
+      user,
+    );
   }
 
   /**

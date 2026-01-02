@@ -15,6 +15,7 @@ import { SetPurchaseRateDto } from './dto/set-purchase-rate.dto';
 import { VenezuelaPayment } from './entities/venezuela-payment.entity';
 import { CreateVenezuelaPaymentDto } from './dto/create-venezuela-payment.dto';
 import { VenezuelaDebtSummary, TransactionDebtDetail, VenezuelaPaymentDetail } from './dto/venezuela-debt-detail.dto';
+import { StorageService } from '../../common/services/storage.service';
 
 /**
  * Parsea una fecha en formato YYYY-MM-DD a un objeto Date en zona horaria local
@@ -48,6 +49,7 @@ export class TransactionsService {
     @InjectRepository(VenezuelaPayment)
     private venezuelaPaymentsRepository: Repository<VenezuelaPayment>,
     private ratesService: RatesService,
+    private storageService: StorageService,
   ) { }
 
   async create(createTransactionDto: CreateTransactionDto, user: any): Promise<Transaction> {
@@ -1244,6 +1246,34 @@ export class TransactionsService {
       };
     }).filter(Boolean);
 
+    // Generar URLs firmadas para los comprobantes de los pagos
+    const paymentsWithSignedUrls = await Promise.all(
+      payments.map(async (p) => {
+        let proofUrl = '';
+        if (p.proofUrl) {
+          try {
+            // Si es una ruta de Supabase (no local legacy), generar signed URL
+            if (!p.proofUrl.startsWith('/uploads/')) {
+              proofUrl = await this.storageService.getSignedUrl(p.proofUrl);
+            } else {
+              proofUrl = p.proofUrl;
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for payment ${p.id}:`, error);
+            proofUrl = p.proofUrl; // Fallback a la ruta original
+          }
+        }
+        return {
+          id: p.id,
+          amount: Number(p.amount),
+          paymentDate: p.paymentDate,
+          paidBy: p.createdBy?.name,
+          notes: p.notes,
+          proofUrl,
+        };
+      })
+    );
+
     return {
       totalEarnings, // Ganancias de Admin Venezuela
       totalDebtFromColombia, // Deuda total de Admin Colombia
@@ -1251,13 +1281,7 @@ export class TransactionsService {
       pendingDebt: totalDebtFromColombia - totalPaid, // Deuda pendiente
       transactionCount: transactions.length,
       transactionDetails, // Detalles con cálculos
-      payments: payments.map(p => ({
-        id: p.id,
-        amount: Number(p.amount),
-        paymentDate: p.paymentDate,
-        paidBy: p.createdBy?.name,
-        notes: p.notes,
-      })),
+      payments: paymentsWithSignedUrls,
       dateRange: { from: dateFrom, to: dateTo },
       hasTransactionsWithoutPurchaseRate,
       transactionsWithoutPurchaseRateCount: transactionsWithoutPurchaseRate.length,
@@ -2111,15 +2135,33 @@ export class TransactionsService {
 
     const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-    const paymentDetails: VenezuelaPaymentDetail[] = payments.map((p) => ({
-      id: p.id,
-      amount: Number(p.amount),
-      notes: p.notes || '',
-      proofUrl: p.proofUrl || '',
-      createdBy: p.createdBy?.name || 'N/A',
-      createdAt: p.createdAt,
-      paymentDate: p.paymentDate,
-    }));
+    const paymentDetails: VenezuelaPaymentDetail[] = await Promise.all(
+      payments.map(async (p) => {
+        let proofUrl = '';
+        if (p.proofUrl) {
+          try {
+            // Si es una ruta de Supabase (no local legacy), generar signed URL
+            if (!p.proofUrl.startsWith('/uploads/')) {
+              proofUrl = await this.storageService.getSignedUrl(p.proofUrl);
+            } else {
+              proofUrl = p.proofUrl;
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for payment ${p.id}:`, error);
+            proofUrl = p.proofUrl; // Fallback a la ruta original
+          }
+        }
+        return {
+          id: p.id,
+          amount: Number(p.amount),
+          notes: p.notes || '',
+          proofUrl,
+          createdBy: p.createdBy?.name || 'N/A',
+          createdAt: p.createdAt,
+          paymentDate: p.paymentDate,
+        };
+      })
+    );
 
     return {
       totalDebt,

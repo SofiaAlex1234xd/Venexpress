@@ -7,11 +7,13 @@ import { TransactionHistory } from './entities/transaction-history.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 import { VenezuelaPayment } from './entities/venezuela-payment.entity';
 import { RatesModule } from '../rates/rates.module';
+import { ProofsModule } from '../proofs/proofs.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Transaction, TransactionHistory, Beneficiary, VenezuelaPayment]),
     RatesModule,
+    ProofsModule,
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],

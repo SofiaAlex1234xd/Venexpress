@@ -238,8 +238,25 @@ export const transactionsService = {
     /**
      * Registra un pago a Admin Venezuela
      */
-    async createVenezuelaPayment(data: { amount: number; notes?: string; proofUrl?: string; paymentDate: string }): Promise<any> {
-        const response = await api.post('/transactions/venezuela-debt/payment', data);
+    async createVenezuelaPayment(data: { amount: number; notes?: string; proofUrl?: string; paymentDate: string; proof?: File }): Promise<any> {
+        const formData = new FormData();
+        formData.append('amount', data.amount.toString());
+        formData.append('paymentDate', data.paymentDate);
+        if (data.notes) {
+            formData.append('notes', data.notes);
+        }
+        if (data.proof) {
+            formData.append('proof', data.proof);
+        }
+        if (data.proofUrl) {
+            formData.append('proofUrl', data.proofUrl);
+        }
+
+        const response = await api.post('/transactions/venezuela-debt/payment', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data;
     },
 
