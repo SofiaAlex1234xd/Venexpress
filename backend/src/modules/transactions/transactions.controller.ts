@@ -75,23 +75,82 @@ export class TransactionsController {
 
   @Post('mark-as-paid')
   @Roles(UserRole.VENDEDOR)
-  markAsPaid(
-    @Body('transactionIds') transactionIds: number[],
+  @UseInterceptors(
+    FileInterceptor('proof', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+      fileFilter: (req, file, cb) => {
+        if (file && !file.mimetype.match(/\/(jpg|jpeg|png|pdf)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes y PDFs'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async markAsPaid(
+    @Body('transactionIds') transactionIds: string | number[],
     @Body('paymentMethod') paymentMethod: string,
+    @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: any,
   ) {
-    return this.transactionsService.markTransactionsAsPaid(transactionIds, paymentMethod, user);
+    let proofPath: string | null = null;
+
+    // Parsear transactionIds si viene como string (desde FormData)
+    let parsedTransactionIds: number[];
+    if (typeof transactionIds === 'string') {
+      try {
+        parsedTransactionIds = JSON.parse(transactionIds);
+      } catch (error) {
+        throw new BadRequestException('Formato inválido de transactionIds');
+      }
+    } else {
+      parsedTransactionIds = transactionIds;
+    }
+
+    // Si hay archivo, subirlo a Supabase Storage
+    if (file) {
+      // Usar el primer transactionId como identificador para la carpeta
+      const transactionId = parsedTransactionIds && parsedTransactionIds.length > 0 ? parsedTransactionIds[0] : `vendor-payment-${Date.now()}`;
+      proofPath = await this.storageService.uploadFile(file, transactionId, 'venezuela');
+    }
+
+    return this.transactionsService.markTransactionsAsPaid(parsedTransactionIds, paymentMethod, user, proofPath);
   }
 
   @Post('mark-date-range-as-paid')
   @Roles(UserRole.VENDEDOR)
-  markDateRangeAsPaid(
+  @UseInterceptors(
+    FileInterceptor('proof', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+      fileFilter: (req, file, cb) => {
+        if (file && !file.mimetype.match(/\/(jpg|jpeg|png|pdf)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes y PDFs'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async markDateRangeAsPaid(
     @Body('startDate') startDate: string,
     @Body('endDate') endDate: string,
     @Body('paymentMethod') paymentMethod: string,
+    @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: any,
   ) {
-    return this.transactionsService.markTransactionsByDateRangeAsPaid(startDate, endDate, paymentMethod, user);
+    let proofPath: string | null = null;
+
+    // Si hay archivo, subirlo a Supabase Storage
+    if (file) {
+      const timestamp = Date.now();
+      proofPath = await this.storageService.uploadFile(file, `vendor-payment-range-${timestamp}`, 'venezuela');
+    }
+
+    return this.transactionsService.markTransactionsByDateRangeAsPaid(startDate, endDate, paymentMethod, user, proofPath);
   }
 
   // Admin Colombia endpoints

@@ -47,15 +47,34 @@ export const transactionsService = {
         return response.data;
     },
 
-    async markAsPaid(transactionIds: number[], paymentMethod: string): Promise<void> {
-        await api.post('/transactions/mark-as-paid', { transactionIds, paymentMethod });
+    async markAsPaid(transactionIds: number[], paymentMethod: string, proof?: File): Promise<void> {
+        const formData = new FormData();
+        formData.append('transactionIds', JSON.stringify(transactionIds));
+        formData.append('paymentMethod', paymentMethod);
+        if (proof) {
+            formData.append('proof', proof);
+        }
+
+        await api.post('/transactions/mark-as-paid', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
     },
 
-    async markDateRangeAsPaid(startDate: string, endDate: string, paymentMethod: string): Promise<{ affected: number }> {
-        const response = await api.post<{ affected: number }>('/transactions/mark-date-range-as-paid', {
-            startDate,
-            endDate,
-            paymentMethod,
+    async markDateRangeAsPaid(startDate: string, endDate: string, paymentMethod: string, proof?: File): Promise<{ affected: number }> {
+        const formData = new FormData();
+        formData.append('startDate', startDate);
+        formData.append('endDate', endDate);
+        formData.append('paymentMethod', paymentMethod);
+        if (proof) {
+            formData.append('proof', proof);
+        }
+
+        const response = await api.post<{ affected: number }>('/transactions/mark-date-range-as-paid', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
         });
         return response.data;
     },

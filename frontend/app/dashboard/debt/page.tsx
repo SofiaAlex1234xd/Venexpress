@@ -28,6 +28,8 @@ export default function DebtPage() {
     const [rangeEndDate, setRangeEndDate] = useState('');
     const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'consignacion_nequi' | 'consignacion_bancolombia' | ''>('');
+    const [paymentProof, setPaymentProof] = useState<File | null>(null);
+    const [paymentProofPreview, setPaymentProofPreview] = useState<string>('');
     const [pendingTransactionIds, setPendingTransactionIds] = useState<number[]>([]);
     const [isRangePayment, setIsRangePayment] = useState(false);
     const [activeTab, setActiveTab] = useState<'unpaid' | 'paid'>('unpaid');
@@ -150,6 +152,8 @@ export default function DebtPage() {
         setPendingTransactionIds(selectedTransactions);
         setIsRangePayment(false);
         setPaymentMethod('');
+        setPaymentProof(null);
+        setPaymentProofPreview('');
         setIsPaymentMethodModalOpen(true);
     };
 
@@ -222,6 +226,8 @@ export default function DebtPage() {
         setIsRangeModalOpen(false);
         setIsRangePayment(true);
         setPaymentMethod('');
+        setPaymentProof(null);
+        setPaymentProofPreview('');
         setIsPaymentMethodModalOpen(true);
     };
 
@@ -543,6 +549,8 @@ export default function DebtPage() {
                 onClose={() => {
                     setIsPaymentMethodModalOpen(false);
                     setPaymentMethod('');
+                    setPaymentProof(null);
+                    setPaymentProofPreview('');
                 }}
                 title="Seleccionar método de pago"
                 size="md"
@@ -599,11 +607,48 @@ export default function DebtPage() {
                         </label>
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Comprobante de Pago (Opcional)
+                        </label>
+                        <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    setPaymentProof(file);
+                                    if (file.type.startsWith('image/')) {
+                                        setPaymentProofPreview(URL.createObjectURL(file));
+                                    } else {
+                                        setPaymentProofPreview('');
+                                    }
+                                }
+                            }}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                        />
+                        {paymentProofPreview && (
+                            <div className="mt-3">
+                                <img src={paymentProofPreview} alt="Preview" className="max-h-48 rounded-lg border border-gray-200" />
+                            </div>
+                        )}
+                        {!paymentProofPreview && paymentProof && (
+                            <p className="mt-2 text-sm text-blue-600 font-medium">
+                                Archivo seleccionado: {paymentProof.name}
+                            </p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">
+                            Puedes subir una imagen (JPG, PNG) o un PDF del comprobante de pago
+                        </p>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                         <button
                             onClick={() => {
                                 setIsPaymentMethodModalOpen(false);
                                 setPaymentMethod('');
+                                setPaymentProof(null);
+                                setPaymentProofPreview('');
                             }}
                             className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                         >

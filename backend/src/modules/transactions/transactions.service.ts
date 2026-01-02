@@ -244,6 +244,7 @@ export class TransactionsService {
     transactionIds: number[],
     paymentMethod: string,
     user: User,
+    proofPath?: string | null,
   ): Promise<void> {
     if (user.role !== 'vendedor') {
       throw new ForbiddenException('Solo los vendedores pueden marcar transacciones como pagadas');
@@ -266,6 +267,9 @@ export class TransactionsService {
       transaction.isPaidByVendor = true;
       transaction.paidByVendorAt = now;
       transaction.vendorPaymentMethod = paymentMethod as any;
+      if (proofPath) {
+        transaction.vendorPaymentProofUrl = proofPath;
+      }
     });
 
     await this.transactionsRepository.save(transactions);
@@ -276,6 +280,7 @@ export class TransactionsService {
     endDate: string,
     paymentMethod: string,
     user: User,
+    proofPath?: string | null,
   ): Promise<number> {
     if (user.role !== 'vendedor') {
       throw new ForbiddenException('Solo los vendedores pueden marcar transacciones como pagadas');
@@ -287,6 +292,16 @@ export class TransactionsService {
     const end = parseLocalDate(endDate);
     end.setHours(23, 59, 59, 999);
 
+    const updateData: any = {
+      isPaidByVendor: true,
+      paidByVendorAt: new Date(),
+      vendorPaymentMethod: paymentMethod as any,
+    };
+
+    if (proofPath) {
+      updateData.vendorPaymentProofUrl = proofPath;
+    }
+
     const result = await this.transactionsRepository.update(
       {
         createdBy: { id: user.id },
@@ -294,11 +309,7 @@ export class TransactionsService {
         isPaidByVendor: false,
         createdAt: Between(start, end),
       },
-      {
-        isPaidByVendor: true,
-        paidByVendorAt: new Date(),
-        vendorPaymentMethod: paymentMethod as any,
-      },
+      updateData,
     );
 
     return result.affected || 0;
@@ -583,10 +594,26 @@ export class TransactionsService {
     const paidResult = await paidQueryBuilder.select('SUM(transaction.amountCOP)', 'sum').getRawOne();
     const paidAmount = Number(paidResult.sum) || 0;
 
+    // Generar URLs firmadas para los comprobantes de las transacciones pendientes
+    const transactionsWithSignedUrls = await Promise.all(
+      transactions.map(async (tx) => {
+        if (tx.vendorPaymentProofUrl) {
+          try {
+            if (!tx.vendorPaymentProofUrl.startsWith('/uploads/')) {
+              tx.vendorPaymentProofUrl = await this.storageService.getSignedUrl(tx.vendorPaymentProofUrl);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for transaction ${tx.id}:`, error);
+          }
+        }
+        return tx;
+      })
+    );
+
     return {
       totalDebt: Number(totalDebt),
       paidAmount: Number(paidAmount),
-      transactions,
+      transactions: transactionsWithSignedUrls,
     };
   }
 
@@ -634,8 +661,24 @@ export class TransactionsService {
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
+    // Generar URLs firmadas para los comprobantes de pago
+    const transactionsWithSignedUrls = await Promise.all(
+      data.map(async (tx) => {
+        if (tx.vendorPaymentProofUrl) {
+          try {
+            if (!tx.vendorPaymentProofUrl.startsWith('/uploads/')) {
+              tx.vendorPaymentProofUrl = await this.storageService.getSignedUrl(tx.vendorPaymentProofUrl);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for transaction ${tx.id}:`, error);
+          }
+        }
+        return tx;
+      })
+    );
+
     return {
-      data,
+      data: transactionsWithSignedUrls,
       meta: {
         total,
         page: Number(page),
@@ -1551,7 +1594,25 @@ export class TransactionsService {
 
     queryBuilder.orderBy('transaction.createdAt', 'DESC');
 
-    return queryBuilder.getMany();
+    const transactions = await queryBuilder.getMany();
+
+    // Generar URLs firmadas para los comprobantes de pago
+    const transactionsWithSignedUrls = await Promise.all(
+      transactions.map(async (tx) => {
+        if (tx.vendorPaymentProofUrl) {
+          try {
+            if (!tx.vendorPaymentProofUrl.startsWith('/uploads/')) {
+              tx.vendorPaymentProofUrl = await this.storageService.getSignedUrl(tx.vendorPaymentProofUrl);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for transaction ${tx.id}:`, error);
+          }
+        }
+        return tx;
+      })
+    );
+
+    return transactionsWithSignedUrls;
   }
 
   async getReportsAdminColombia(query: any): Promise<any> {

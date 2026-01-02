@@ -107,6 +107,9 @@ export class Transaction {
   })
   vendorPaymentMethod: VendorPaymentMethod; // Método de pago usado por el vendedor
 
+  @Column({ nullable: true, name: 'vendor_payment_proof_url' })
+  vendorPaymentProofUrl: string; // URL del comprobante de pago del vendedor
+
   // Comisión (2% de la transferencia) pagada por Admin Colombia al vendedor
   @Index()
   @Column({ type: 'boolean', default: false })
