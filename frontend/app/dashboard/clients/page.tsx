@@ -417,34 +417,70 @@ export default function ClientsPage() {
                         <div className="text-sm text-gray-600">
                             Mostrando {startIndex + 1} - {Math.min(endIndex, filteredClients.length)} de {filteredClients.length} clientes
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 sm:gap-2 items-center">
                             <button
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-2 sm:px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                aria-label="Página anterior"
                             >
-                                Anterior
+                                <svg className="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                                <span className="hidden sm:inline">Anterior</span>
                             </button>
-                            <div className="flex gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                    <button
-                                        key={page}
-                                        onClick={() => setCurrentPage(page)}
-                                        className={`px-3 py-2 text-sm font-medium rounded-lg ${currentPage === page
-                                            ? 'bg-blue-600 text-white'
-                                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        {page}
-                                    </button>
-                                ))}
+                            <div className="flex gap-1 overflow-x-auto max-w-[calc(100vw-200px)] sm:max-w-none">
+                                {(() => {
+                                    const maxVisible = 5; // Máximo de páginas visibles en móvil
+                                    const halfVisible = Math.floor(maxVisible / 2);
+                                    let startPage = Math.max(1, currentPage - halfVisible);
+                                    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                                    
+                                    if (endPage - startPage < maxVisible - 1) {
+                                        startPage = Math.max(1, endPage - maxVisible + 1);
+                                    }
+                                    
+                                    const pages = [];
+                                    if (startPage > 1) {
+                                        pages.push(1);
+                                        if (startPage > 2) pages.push('...');
+                                    }
+                                    for (let i = startPage; i <= endPage; i++) {
+                                        pages.push(i);
+                                    }
+                                    if (endPage < totalPages) {
+                                        if (endPage < totalPages - 1) pages.push('...');
+                                        pages.push(totalPages);
+                                    }
+                                    
+                                    return pages.map((page, idx) => (
+                                        page === '...' ? (
+                                            <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-500">...</span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page as number)}
+                                                className={`px-2 sm:px-3 py-2 text-sm font-medium rounded-lg whitespace-nowrap ${currentPage === page
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                                    }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    ));
+                                })()}
                             </div>
                             <button
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-2 sm:px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                aria-label="Página siguiente"
                             >
-                                Siguiente
+                                <span className="hidden sm:inline">Siguiente</span>
+                                <svg className="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
                             </button>
                         </div>
                     </div>

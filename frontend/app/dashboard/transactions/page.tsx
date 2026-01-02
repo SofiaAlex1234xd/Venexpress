@@ -972,31 +972,67 @@ export default function TransactionsPage() {
                                 <div className="text-sm text-gray-600">
                                     Mostrando {startIndex + 1} a {Math.min(endIndex, filteredTransactions.length)} de {filteredTransactions.length} transacciones
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-1 sm:gap-2 items-center">
                                     <button
                                         onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                                         disabled={currentPage === 1}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                        className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                        aria-label="Página anterior"
                                     >
-                                        Anterior
+                                        <svg className="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        <span className="hidden sm:inline">Anterior</span>
                                     </button>
-                                    <div className="flex items-center gap-2">
-                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                            <button
-                                                key={page}
-                                                onClick={() => setCurrentPage(page)}
-                                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                                            >
-                                                {page}
-                                            </button>
-                                        ))}
+                                    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-[calc(100vw-200px)] sm:max-w-none">
+                                        {(() => {
+                                            const maxVisible = 5; // Máximo de páginas visibles en móvil
+                                            const halfVisible = Math.floor(maxVisible / 2);
+                                            let startPage = Math.max(1, currentPage - halfVisible);
+                                            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                                            
+                                            if (endPage - startPage < maxVisible - 1) {
+                                                startPage = Math.max(1, endPage - maxVisible + 1);
+                                            }
+                                            
+                                            const pages = [];
+                                            if (startPage > 1) {
+                                                pages.push(1);
+                                                if (startPage > 2) pages.push('...');
+                                            }
+                                            for (let i = startPage; i <= endPage; i++) {
+                                                pages.push(i);
+                                            }
+                                            if (endPage < totalPages) {
+                                                if (endPage < totalPages - 1) pages.push('...');
+                                                pages.push(totalPages);
+                                            }
+                                            
+                                            return pages.map((page, idx) => (
+                                                page === '...' ? (
+                                                    <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-500">...</span>
+                                                ) : (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setCurrentPage(page as number)}
+                                                        className={`px-2 sm:px-3 py-1 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                )
+                                            ));
+                                        })()}
                                     </div>
                                     <button
                                         onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                                         disabled={currentPage === totalPages}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                        className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                        aria-label="Página siguiente"
                                     >
-                                        Siguiente
+                                        <span className="hidden sm:inline">Siguiente</span>
+                                        <svg className="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
