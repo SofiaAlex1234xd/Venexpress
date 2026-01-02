@@ -431,7 +431,7 @@ export default function ClientsPage() {
                             </button>
                             <div className="flex gap-1 overflow-x-auto max-w-[calc(100vw-200px)] sm:max-w-none">
                                 {(() => {
-                                    const maxVisible = 5; // Máximo de páginas visibles en móvil
+                                    const maxVisible = 3; // Máximo de páginas visibles
                                     const halfVisible = Math.floor(maxVisible / 2);
                                     let startPage = Math.max(1, currentPage - halfVisible);
                                     let endPage = Math.min(totalPages, startPage + maxVisible - 1);

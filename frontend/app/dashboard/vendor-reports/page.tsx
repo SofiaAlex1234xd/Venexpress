@@ -455,7 +455,7 @@ export default function VendorReportsPage() {
                                     </button>
                                     <div className="flex gap-1 overflow-x-auto max-w-[calc(100vw-200px)] sm:max-w-none">
                                         {(() => {
-                                            const maxVisible = 5;
+                                            const maxVisible = 3;
                                             const halfVisible = Math.floor(maxVisible / 2);
                                             let startPage = Math.max(1, currentPage - halfVisible);
                                             let endPage = Math.min(totalPages, startPage + maxVisible - 1);
