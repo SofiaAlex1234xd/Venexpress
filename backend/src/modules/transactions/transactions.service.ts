@@ -263,10 +263,11 @@ export class TransactionsService {
     }
 
     const now = new Date();
+    const normalizedPaymentMethod = paymentMethod.toLowerCase();
     transactions.forEach(transaction => {
       transaction.isPaidByVendor = true;
       transaction.paidByVendorAt = now;
-      transaction.vendorPaymentMethod = paymentMethod as any;
+      transaction.vendorPaymentMethod = normalizedPaymentMethod as any;
       if (proofPath) {
         transaction.vendorPaymentProofUrl = proofPath;
       }
@@ -292,10 +293,11 @@ export class TransactionsService {
     const end = parseLocalDate(endDate);
     end.setHours(23, 59, 59, 999);
 
+    const normalizedPaymentMethod = paymentMethod.toLowerCase();
     const updateData: any = {
       isPaidByVendor: true,
       paidByVendorAt: new Date(),
-      vendorPaymentMethod: paymentMethod as any,
+      vendorPaymentMethod: normalizedPaymentMethod as any,
     };
 
     if (proofPath) {
