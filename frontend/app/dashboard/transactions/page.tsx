@@ -15,7 +15,7 @@ import { getLocalDateString, getDateDaysAgo, getFirstDayOfMonth } from '@/utils/
 
 export default function TransactionsPage() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const isAdminColombia = user?.role === 'admin_colombia';
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -48,18 +48,30 @@ export default function TransactionsPage() {
 
     // Load all transactions (up to 100 for stats)
     useEffect(() => {
+        // Esperar a que termine la carga de autenticación y que user esté disponible
+        if (authLoading || !user) return;
+
         loadTransactions();
 
         const intervalId = setInterval(() => {
-            loadTransactions();
+            if (user) {
+                loadTransactions();
+            }
         }, 60_000);
 
         return () => clearInterval(intervalId);
-    }, []);
+    }, [user, startDate, endDate, authLoading]); // Recargar cuando cambie el usuario o las fechas
 
     const loadTransactions = async () => {
         try {
-            const data = await transactionsService.getTransactions(100, 0);
+            // Si es admin_colombia, usar el endpoint específico que filtra solo sus vendedores
+            let data: Transaction[];
+            if (user?.role === 'admin_colombia') {
+                // Usar el endpoint que filtra solo vendedores de admin_colombia
+                data = await transactionsService.getHistoryAdminColombia('all', startDate || undefined, endDate || undefined);
+            } else {
+                data = await transactionsService.getTransactions(100, 0);
+            }
             setTransactions(data);
             // Filters will be applied automatically via useEffect
         } catch (error) {

@@ -29,6 +29,16 @@ interface VendorReports {
     vendorEarningsPaid: number;
     vendorEarningsPending: number;
     averageRate: number;
+    commissionsDetail?: Array<{
+        id: number;
+        date: string;
+        beneficiaryName: string;
+        amountCOP: number;
+        commissionRate: number;
+        commissionAmount: number;
+        isPaid: boolean;
+        hasCustomRate: boolean;
+    }>;
     transactionsByDay: Array<{
         date: string;
         count: number;
@@ -295,7 +305,7 @@ export default function VendorReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl shadow-sm border border-emerald-200 p-5">
                     <h4 className="text-sm font-semibold text-emerald-800 mb-1">Ganancia Total Vendedor</h4>
-                    <p className="text-xs text-emerald-700 mb-3">2% de las transacciones COMPLETADAS</p>
+                    <p className="text-xs text-emerald-700 mb-3">{user?.commission || 2}% de las transacciones COMPLETADAS</p>
                     <p className="text-2xl font-bold text-emerald-900">
                         ${reports.vendorEarningsTotal.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
@@ -317,6 +327,79 @@ export default function VendorReportsPage() {
                     </p>
                 </div>
             </div>
+
+            {/* Detalle de Comisiones por Transacción */}
+            {reports.commissionsDetail && reports.commissionsDetail.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Detalle de Comisiones
+                    </h3>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto COP</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Comisión %</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tu Comisión</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {reports.commissionsDetail.map((detail) => (
+                                    <tr key={detail.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 text-gray-900">#{detail.id}</td>
+                                        <td className="px-4 py-3 text-gray-600">
+                                            {new Date(detail.date).toLocaleDateString('es-CO')}
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-900">{detail.beneficiaryName}</td>
+                                        <td className="px-4 py-3 text-right font-medium text-gray-900">
+                                            ${detail.amountCOP.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+                                                detail.hasCustomRate 
+                                                    ? 'bg-purple-100 text-purple-800' 
+                                                    : 'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {detail.commissionRate}%
+                                                {detail.hasCustomRate && ' ⚡'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                                            ${detail.commissionAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            {detail.isPaid ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    ✓ Pagado
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                    ⏳ Pendiente
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-3 text-sm font-bold text-gray-900">
+                                        TOTAL
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-sm font-bold text-emerald-600">
+                                        ${reports.vendorEarningsTotal.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Transacciones por Estado */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">

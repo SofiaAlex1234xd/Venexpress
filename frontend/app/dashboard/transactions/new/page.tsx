@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -17,6 +18,8 @@ import { ExchangeRate } from '@/types/rate';
 
 export default function NewTransactionPage() {
     const router = useRouter();
+    const { user } = useAuth();
+    const isVendorVenezuela = user?.role === 'vendedor' && user?.adminId === 2;
     const [clients, setClients] = useState<Client[]>([]);
     const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
     const [filteredBeneficiaries, setFilteredBeneficiaries] = useState<Beneficiary[]>([]);
@@ -43,6 +46,10 @@ export default function NewTransactionPage() {
         notes: '',
         confirmedReceipt: false,
     });
+
+    // Payment proof for Venezuela vendors
+    const [paymentProof, setPaymentProof] = useState<File | null>(null);
+    const [paymentProofPreview, setPaymentProofPreview] = useState<string>('');
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [clientSearch, setClientSearch] = useState('');
@@ -210,6 +217,14 @@ export default function NewTransactionPage() {
         }
     };
 
+    const handlePaymentProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setPaymentProof(file);
+            setPaymentProofPreview(URL.createObjectURL(file));
+        }
+    };
+
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
 
@@ -225,8 +240,15 @@ export default function NewTransactionPage() {
             newErrors.amount = 'Ingresa un monto en COP o Bs';
         }
 
-        if (!formData.confirmedReceipt) {
-            newErrors.confirmedReceipt = 'Debes confirmar que recibiste el dinero';
+        // Validación diferente según tipo de vendedor
+        if (isVendorVenezuela) {
+            if (!paymentProof) {
+                newErrors.paymentProof = 'Debes adjuntar el comprobante de pago';
+            }
+        } else {
+            if (!formData.confirmedReceipt) {
+                newErrors.confirmedReceipt = 'Debes confirmar que recibiste el dinero';
+            }
         }
 
         setErrors(newErrors);
@@ -267,20 +289,43 @@ export default function NewTransactionPage() {
 
         setSaving(true);
         try {
-            const transactionData: any = {
-                beneficiaryId: Number(formData.beneficiaryId),
-                clientPresencialId: Number(formData.clientPresencialId),
-                amountCOP: formData.amountCOP ? parseFloat(formData.amountCOP.replace(/\./g, '')) : undefined,
-                amountBs: formData.amountBs ? parseFloat(formData.amountBs) : undefined,
-                notes: formData.notes || undefined,
-            };
+            // Si es vendedor de Venezuela, usar FormData para incluir el archivo
+            if (isVendorVenezuela && paymentProof) {
+                const formDataToSend = new FormData();
+                formDataToSend.append('beneficiaryId', formData.beneficiaryId);
+                formDataToSend.append('clientPresencialId', formData.clientPresencialId);
+                if (formData.amountCOP) {
+                    formDataToSend.append('amountCOP', parseFloat(formData.amountCOP.replace(/\./g, '')).toString());
+                }
+                if (formData.amountBs) {
+                    formDataToSend.append('amountBs', formData.amountBs);
+                }
+                if (formData.notes) {
+                    formDataToSend.append('notes', formData.notes);
+                }
+                if (useCustomRate && customRate) {
+                    formDataToSend.append('customRate', customRate);
+                }
+                formDataToSend.append('paymentProof', paymentProof);
 
-            // Si se está usando una tasa personalizada, incluirla en la transacción
-            if (useCustomRate && customRate) {
-                transactionData.customRate = parseFloat(customRate);
+                await transactionsService.createTransactionWithProof(formDataToSend);
+            } else {
+                // Vendedor de Colombia - método tradicional
+                const transactionData: any = {
+                    beneficiaryId: Number(formData.beneficiaryId),
+                    clientPresencialId: Number(formData.clientPresencialId),
+                    amountCOP: formData.amountCOP ? parseFloat(formData.amountCOP.replace(/\./g, '')) : undefined,
+                    amountBs: formData.amountBs ? parseFloat(formData.amountBs) : undefined,
+                    notes: formData.notes || undefined,
+                };
+
+                // Si se está usando una tasa personalizada, incluirla en la transacción
+                if (useCustomRate && customRate) {
+                    transactionData.customRate = parseFloat(customRate);
+                }
+
+                await transactionsService.createTransaction(transactionData);
             }
-
-            await transactionsService.createTransaction(transactionData);
 
             router.push('/dashboard/transactions');
         } catch (error: any) {
@@ -737,30 +782,97 @@ export default function NewTransactionPage() {
                                 />
                             </Card>
 
-                            {/* Confirmation Checkbox */}
+                            {/* Confirmation Checkbox OR Payment Proof Upload */}
                             <Card className="mb-6">
-                                <div className={`p-4 rounded-xl border-2 transition-all ${errors.confirmedReceipt ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                    }`}>
-                                    <label className="flex items-start gap-3 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.confirmedReceipt}
-                                            onChange={(e) => setFormData({ ...formData, confirmedReceipt: e.target.checked })}
-                                            className="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                                        />
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-gray-900">
-                                                Confirmo haber recibido el dinero de esta transacción
+                                {isVendorVenezuela ? (
+                                    // Para vendedores de Venezuela: subir comprobante
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-900 mb-4">Comprobante de Pago *</h2>
+                                        <div className={`p-4 rounded-xl border-2 transition-all ${errors.paymentProof ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                                            <p className="text-sm text-gray-600 mb-4">
+                                                Adjunta el comprobante de pago que recibiste del cliente. Este será visible para el administrador de Venezuela.
                                             </p>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                Al marcar esta casilla, confirmas que has recibido el pago del cliente y te comprometes a consignarlo posteriormente.
-                                            </p>
+                                            
+                                            <input
+                                                type="file"
+                                                accept="image/*,.pdf"
+                                                onChange={handlePaymentProofChange}
+                                                className="hidden"
+                                                id="paymentProofInput"
+                                            />
+                                            
+                                            {!paymentProof ? (
+                                                <label
+                                                    htmlFor="paymentProofInput"
+                                                    className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
+                                                >
+                                                    <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                    </svg>
+                                                    <p className="text-sm font-medium text-gray-700">Haz clic para seleccionar el comprobante</p>
+                                                    <p className="text-xs text-gray-500 mt-1">PNG, JPG o PDF (máx. 5MB)</p>
+                                                </label>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {paymentProofPreview && (
+                                                        <div className="relative">
+                                                            <img
+                                                                src={paymentProofPreview}
+                                                                alt="Vista previa"
+                                                                className="w-full max-h-64 object-contain rounded-lg border-2 border-gray-200"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                        <div className="flex items-center gap-2">
+                                                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            <span className="text-sm font-medium text-green-900">{paymentProof.name}</span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setPaymentProof(null);
+                                                                setPaymentProofPreview('');
+                                                            }}
+                                                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {errors.paymentProof && (
+                                                <p className="mt-2 text-sm text-red-600">{errors.paymentProof}</p>
+                                            )}
                                         </div>
-                                    </label>
-                                    {errors.confirmedReceipt && (
-                                        <p className="mt-2 text-sm text-red-600 ml-8">{errors.confirmedReceipt}</p>
-                                    )}
-                                </div>
+                                    </div>
+                                ) : (
+                                    // Para vendedores de Colombia: checkbox de confirmación
+                                    <div className={`p-4 rounded-xl border-2 transition-all ${errors.confirmedReceipt ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.confirmedReceipt}
+                                                onChange={(e) => setFormData({ ...formData, confirmedReceipt: e.target.checked })}
+                                                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                            />
+                                            <div className="flex-1">
+                                                <p className="font-semibold text-gray-900">
+                                                    Confirmo haber recibido el dinero de esta transacción
+                                                </p>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    Al marcar esta casilla, confirmas que has recibido el pago del cliente y te comprometes a consignarlo posteriormente.
+                                                </p>
+                                            </div>
+                                        </label>
+                                        {errors.confirmedReceipt && (
+                                            <p className="mt-2 text-sm text-red-600 ml-8">{errors.confirmedReceipt}</p>
+                                        )}
+                                    </div>
+                                )}
                             </Card>
 
                             {/* Step 2 Navigation */}
@@ -808,6 +920,22 @@ export default function NewTransactionPage() {
                             </div>
                         </div>
                     </div>
+
+                    {isVendorVenezuela && (
+                        <div className="p-4 bg-purple-50 border-2 border-purple-300 rounded-xl">
+                            <div className="flex gap-3">
+                                <svg className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                    <p className="text-sm font-bold text-purple-900">⚠️ Aviso Importante</p>
+                                    <p className="text-xs text-purple-800 mt-1">
+                                        <strong>Ojo:</strong> Al usar una tasa personalizada, tu comisión de este giro bajará del 5% al 4%.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {currentRate && (
                         <div className="p-3 bg-gray-50 rounded-lg">

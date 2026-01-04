@@ -7,6 +7,8 @@ export interface User {
     phone: string;
     role: UserRole;
     pointId?: number;
+    adminId?: number;
+    commission?: number;
     createdAt: string;
     updatedAt: string;
 }

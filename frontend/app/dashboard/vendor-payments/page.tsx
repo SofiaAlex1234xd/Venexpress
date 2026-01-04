@@ -30,7 +30,8 @@ export default function VendorPaymentsPage() {
   const [globalCommission, setGlobalCommission] = useState<number>(0);
 
   useEffect(() => {
-    if (user?.role === 'admin_colombia') {
+    // Allow both Admin Colombia and Admin Venezuela to access this page
+    if (user?.role === 'admin_colombia' || user?.role === 'admin_venezuela') {
       loadTransactions();
 
       const intervalId = setInterval(() => {
@@ -45,12 +46,36 @@ export default function VendorPaymentsPage() {
   const loadTransactions = async () => {
     try {
       setLoading(true);
-      const data = await transactionsService.getHistoryAdminColombia(
-        'completado',
-        filters.startDate,
-        filters.endDate,
-        filters.vendorId ? Number(filters.vendorId) : undefined,
-      );
+      
+      console.log('🔍 loadTransactions called', { userRole: user?.role, filters });
+      
+      // Validate and convert vendorId to number if provided
+      let vendorIdNumber: number | undefined = undefined;
+      if (filters.vendorId && filters.vendorId.trim() !== '') {
+        const parsed = Number(filters.vendorId);
+        if (!isNaN(parsed) && parsed > 0) {
+          vendorIdNumber = parsed;
+        }
+      }
+      
+      // Call appropriate service method based on admin role
+      console.log('🔍 About to call service, user role is:', user?.role);
+      const data = user?.role === 'admin_colombia'
+        ? await transactionsService.getHistoryAdminColombia(
+            'completado',
+            filters.startDate,
+            filters.endDate,
+            vendorIdNumber,
+          )
+        : await transactionsService.getHistoryAdminVenezuela(
+            'completado',
+            filters.startDate,
+            filters.endDate,
+            vendorIdNumber,
+          );
+      
+      console.log('🔍 Received data:', data.length, 'transactions');
+
       // Filtrar transacciones pendientes de pago de comisión
       const pendingPayment = data.filter(
         (t: Transaction) => !t.isCommissionPaidToVendor,
@@ -96,7 +121,10 @@ export default function VendorPaymentsPage() {
 
   const getCommission = (tx: Transaction) => {
     const cop = Number(tx.amountCOP) || 0;
-    return cop * 0.02;
+    // Use commission from the vendor who created the transaction, not the admin viewing the page
+    const vendorCommission = (tx.createdBy as any)?.commission;
+    const commissionRate = vendorCommission ? vendorCommission / 100 : (user?.role === 'admin_colombia' ? 0.02 : 0.05);
+    return cop * commissionRate;
   };
 
   const formatCOP = (value: number) =>
@@ -110,7 +138,14 @@ export default function VendorPaymentsPage() {
     if (selectedIds.length === 0) return;
     try {
       setMarking(true);
-      await transactionsService.markVendorCommissionAsPaid(selectedIds);
+      
+      // Call appropriate service method based on admin role
+      if (user?.role === 'admin_colombia') {
+        await transactionsService.markVendorCommissionAsPaid(selectedIds);
+      } else {
+        await transactionsService.markVendorCommissionAsPaidVenezuela(selectedIds);
+      }
+      
       await loadTransactions();
     } catch (error) {
       console.error('Error marking commission as paid:', error);
@@ -119,17 +154,19 @@ export default function VendorPaymentsPage() {
     }
   };
 
-  if (user?.role !== 'admin_colombia') {
+  if (user?.role !== 'admin_colombia' && user?.role !== 'admin_venezuela') {
     return (
       <div className="p-4 sm:p-6">
         <Card>
           <p className="text-sm text-red-600 font-medium">
-            Esta sección solo está disponible para Admin Colombia.
+            Esta sección solo está disponible para Administradores.
           </p>
         </Card>
       </div>
     );
   }
+
+  const commissionPercentage = Math.round((user?.commission || (user?.role === 'admin_colombia' ? 0.02 : 0.05)) * 100);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -138,7 +175,7 @@ export default function VendorPaymentsPage() {
           Pagos a vendedores
         </h1>
         <p className="text-sm text-gray-600 mt-1">
-          Administra las comisiones (2%) pagadas a los vendedores sobre las
+          Administra las comisiones ({commissionPercentage}%) pagadas a los vendedores sobre las
           transacciones completadas (pendientes de pago).
         </p>
       </div>
@@ -322,7 +359,7 @@ export default function VendorPaymentsPage() {
                   Monto COP
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Comisión 2%
+                  Comisión {commissionPercentage}%
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado comisión

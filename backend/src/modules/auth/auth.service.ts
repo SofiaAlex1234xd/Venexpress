@@ -20,7 +20,13 @@ export class AuthService {
       });
       const { password, ...result } = user as any;
       
-      const payload = { sub: user.id, email: user.email, role: user.role };
+      const payload = { 
+        sub: user.id, 
+        email: user.email, 
+        role: user.role,
+        adminId: user.adminId,
+        commission: user.commission,
+      };
       const access_token = this.jwtService.sign(payload);
 
       return {
@@ -42,7 +48,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      role: user.role,
+      adminId: user.adminId,
+      commission: user.commission,
+    };
     const access_token = this.jwtService.sign(payload);
 
     const { password, ...result } = user as any;

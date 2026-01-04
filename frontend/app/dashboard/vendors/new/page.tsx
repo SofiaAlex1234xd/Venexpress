@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card';
 import Alert from '@/components/ui/Alert';
 
 export default function NewVendorPage() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -25,12 +25,18 @@ export default function NewVendorPage() {
     });
 
     useEffect(() => {
-        if (user && user.role !== 'admin_colombia') {
+        if (authLoading) return;
+        
+        if (!user || (user.role !== 'admin_colombia' && user.role !== 'admin_venezuela')) {
             router.push('/dashboard');
         }
-    }, [user, router]);
+    }, [user, authLoading, router]);
 
-    if (!user || user.role !== 'admin_colombia') {
+    if (authLoading) {
+        return null;
+    }
+
+    if (!user || (user.role !== 'admin_colombia' && user.role !== 'admin_venezuela')) {
         return null;
     }
 
@@ -48,7 +54,12 @@ export default function NewVendorPage() {
 
         try {
             setLoading(true);
-            await usersService.createVendor(formData);
+            // Usar el método correcto según el rol del usuario
+            if (user.role === 'admin_venezuela') {
+                await usersService.createVendorVenezuela(formData);
+            } else {
+                await usersService.createVendor(formData);
+            }
             setAlertState({
                 isOpen: true,
                 message: 'Vendedor creado exitosamente',

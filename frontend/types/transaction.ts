@@ -15,6 +15,8 @@ export interface Transaction {
         id: number;
         name: string;
         role: string;
+        commission?: number; // Comisión del vendedor (2% o 5%)
+        adminId?: number; // ID del admin al que pertenece el vendedor
     };
     clientPresencial?: {
         id: number;
@@ -58,9 +60,11 @@ export interface Transaction {
     paidByVendorAt?: string;
     vendorPaymentMethod?: 'efectivo' | 'consignacion_nequi' | 'consignacion_bancolombia';
     vendorPaymentProofUrl?: string; // URL del comprobante de pago del vendedor
+    vendorPaymentProof?: string; // URL del comprobante de pago inicial del vendedor (para vendedores de Venezuela)
     isCommissionPaidToVendor?: boolean;
     commissionPaidAt?: string;
     hasCustomRate?: boolean; // Indica si el vendedor usó una tasa personalizada
+    transactionCommission?: number; // Comisión específica de esta transacción (2%, 4%, 5%, etc.)
     createdAt: string;
     updatedAt: string;
     lastEditedAt?: string;

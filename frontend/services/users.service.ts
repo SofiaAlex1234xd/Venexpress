@@ -23,15 +23,39 @@ export interface CreateVendorDto {
 }
 
 export const usersService = {
-    // Get all vendors
+    // Get all vendors (Admin Colombia)
     async getVendors(): Promise<Vendor[]> {
         const response = await api.get('/users/vendors');
         return response.data;
     },
 
-    // Create new vendor
+    // Get all vendors (Admin Venezuela)
+    async getVendorsVenezuela(): Promise<Vendor[]> {
+        const response = await api.get('/users/venezuela/vendors');
+        return response.data;
+    },
+
+    // Create new vendor (Admin Colombia)
     async createVendor(data: CreateVendorDto): Promise<Vendor> {
         const response = await api.post('/users/vendors', data);
+        return response.data;
+    },
+
+    // Create new vendor (Admin Venezuela)
+    async createVendorVenezuela(data: CreateVendorDto): Promise<Vendor> {
+        const response = await api.post('/users/venezuela/vendors', data);
+        return response.data;
+    },
+
+    // Update vendor (Admin Colombia)
+    async updateVendor(vendorId: number, data: { email?: string; password?: string }): Promise<Vendor> {
+        const response = await api.patch(`/users/vendors/${vendorId}`, data);
+        return response.data;
+    },
+
+    // Update vendor (Admin Venezuela)
+    async updateVendorVenezuela(vendorId: number, data: { email?: string; password?: string }): Promise<Vendor> {
+        const response = await api.patch(`/users/venezuela/vendors/${vendorId}`, data);
         return response.data;
     },
 

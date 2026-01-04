@@ -70,6 +70,9 @@ export class BeneficiariesService {
     } else if (user.role === UserRole.VENDEDOR) {
       // Mostrar Destinatarios de clientes del vendedor
       where.clientColombia = { vendedor: { id: user.id } };
+    } else if (user.role === UserRole.ADMIN_COLOMBIA || user.role === UserRole.ADMIN_VENEZUELA) {
+      // Admin solo ve destinatarios de sus vendedores
+      where.clientColombia = { vendedor: { adminId: user.id } };
     }
 
     // Filtro opcional por vendedor (para administradores)

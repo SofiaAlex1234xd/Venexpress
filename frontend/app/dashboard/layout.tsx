@@ -39,6 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         icon: React.ReactNode;
         roles?: string[];
         isSecondary?: boolean;
+        showOnlyForAdminColombiaVendors?: boolean; // Para items que solo deben mostrarse a vendedores de admin_colombia
     }
 
     const allNavigation: NavigationItem[] = [
@@ -68,6 +69,82 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         strokeLinejoin="round"
                         strokeWidth={2}
                         d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            name: 'Clientes',
+            href: '/dashboard/clients',
+            roles: ['admin_venezuela'],
+            isSecondary: true,
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            name: 'Destinatarios',
+            href: '/dashboard/beneficiaries',
+            roles: ['admin_venezuela'],
+            isSecondary: true,
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            name: 'Pagos a Vendedores',
+            href: '/dashboard/vendor-payments',
+            roles: ['admin_venezuela'],
+            isSecondary: true,
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            name: 'Saldos',
+            href: '/dashboard/accounts',
+            roles: ['admin_venezuela'],
+            isSecondary: true,
+            icon: (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                    <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                </svg>
+            ),
+        },
+        {
+            name: 'Vendedores',
+            href: '/dashboard/vendors',
+            roles: ['admin_venezuela'],
+            isSecondary: true,
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
                     />
                 </svg>
             ),
@@ -137,6 +214,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             name: 'Deuda',
             href: '/dashboard/debt',
             roles: ['vendedor'],
+            showOnlyForAdminColombiaVendors: true, // Solo mostrar a vendedores de admin_colombia
             icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -387,15 +465,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Filtrar navegación según el rol del usuario
     const allFilteredNavigation = allNavigation.filter(item => {
         if (!item.roles) return true; // Si no tiene roles definidos, mostrar a todos
-        return item.roles.includes(user.role);
+        
+        // Verificar si el item tiene el rol requerido
+        if (!item.roles.includes(user.role)) return false;
+        
+        // Si el item solo debe mostrarse a vendedores de admin_colombia
+        if (item.showOnlyForAdminColombiaVendors) {
+            // Solo mostrar si es vendedor Y (adminId es 1, null o undefined)
+            if (user.role === 'vendedor') {
+                const isAdminColombiaVendor = user.adminId === 1 || user.adminId === null || user.adminId === undefined;
+                return isAdminColombiaVendor;
+            }
+            return false;
+        }
+        
+        return true;
     });
 
     // Separar navegación principal y secundaria
     const primaryNavigation = allFilteredNavigation.filter(item => !item.isSecondary);
     const secondaryNavigation = allFilteredNavigation.filter(item => item.isSecondary);
     
-    // Navegación a mostrar (primaria + secundaria si showMoreMenu está activo)
-    const navigation = showMoreMenu ? allFilteredNavigation : primaryNavigation;
+    // Navegación a mostrar (solo primaria, las secundarias se muestran debajo cuando showMoreMenu está activo)
+    const navigation = primaryNavigation;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col md:flex-row">
@@ -449,7 +541,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         );
                     })}
                     
-                    {/* Botón "Otros" para Admin Colombia */}
+                    {/* Botón "Más opciones" */}
                     {secondaryNavigation.length > 0 && (
                         <button
                             onClick={() => setShowMoreMenu(!showMoreMenu)}
@@ -460,6 +552,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </svg>
                             <span>{showMoreMenu ? 'Menos opciones' : 'Más opciones'}</span>
                         </button>
+                    )}
+                    
+                    {/* Opciones secundarias - aparecen debajo cuando showMoreMenu está activo */}
+                    {showMoreMenu && secondaryNavigation.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-gray-200">
+                            {secondaryNavigation.map((item, index) => {
+                                const isActive = pathname === item.href;
+                                return (
+                                    <Link
+                                        key={`secondary-${item.href}-${index}`}
+                                        href={item.href}
+                                        className={`
+                      flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                      ${isActive
+                                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                                            : 'text-gray-700 hover:bg-gray-100'
+                                        }
+                    `}
+                                    >
+                                        {item.icon}
+                                        <span>{item.name}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
                     )}
                 </nav>
 
@@ -510,7 +627,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 );
                             })}
                             
-                            {/* Botón "Otros" para Admin Colombia (móvil) */}
+                            {/* Botón "Más opciones" (móvil) */}
                             {secondaryNavigation.length > 0 && (
                                 <button
                                     onClick={() => setShowMoreMenu(!showMoreMenu)}
@@ -521,6 +638,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </svg>
                                     <span className="text-sm sm:text-base">{showMoreMenu ? 'Menos opciones' : 'Más opciones'}</span>
                                 </button>
+                            )}
+                            
+                            {/* Opciones secundarias - aparecen debajo cuando showMoreMenu está activo (móvil) */}
+                            {showMoreMenu && secondaryNavigation.length > 0 && (
+                                <div className="space-y-2 pt-2 border-t border-gray-200">
+                                    {secondaryNavigation.map((item, index) => {
+                                        const isActive = pathname === item.href;
+                                        return (
+                                            <Link
+                                                key={`secondary-mobile-${item.href}-${index}`}
+                                                href={item.href}
+                                                onClick={() => setIsSidebarOpen(false)}
+                                                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all duration-200 touch-manipulation ${isActive ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'}`}
+                                            >
+                                                {item.icon}
+                                                <span className="text-sm sm:text-base">{item.name}</span>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </nav>
 

@@ -52,7 +52,7 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'password', 'name', 'role', 'phone'],
+      select: ['id', 'email', 'password', 'name', 'role', 'phone', 'adminId', 'commission'],
     });
   }
 
@@ -73,9 +73,16 @@ export class UsersService {
   }
 
   // Admin Colombia methods
-  async findAllVendors(): Promise<User[]> {
+  async findAllVendors(adminId?: number): Promise<User[]> {
+    const where: any = { role: 'vendedor' as any };
+    
+    // Si se proporciona adminId, filtrar por ese admin, de lo contrario, incluir vendedores sin admin asignado (legacy)
+    if (adminId) {
+      where.adminId = adminId;
+    }
+
     const vendors = await this.usersRepository.find({
-      where: { role: 'vendedor' as any },
+      where,
       relations: ['point'],
       order: { createdAt: 'DESC' },
     });
@@ -90,7 +97,7 @@ export class UsersService {
     return vendors;
   }
 
-  async createVendor(createVendorDto: any): Promise<User> {
+  async createVendor(createVendorDto: any, adminId?: number): Promise<User> {
     const hashedPassword = await bcrypt.hash(createVendorDto.password, 10);
 
     const vendor = this.usersRepository.create({
@@ -103,7 +110,76 @@ export class UsersService {
       debt: createVendorDto.initialDebt || 0,
       paidAmount: 0,
       isBanned: false,
+      commission: createVendorDto.commission || 2, // Por defecto 2% (Admin Colombia)
+      adminId: adminId || null, // Asignar al admin que lo crea
     });
+
+    return this.usersRepository.save(vendor);
+  }
+
+  async updateVendor(vendorId: number, updateData: { email?: string; password?: string }, adminId?: number): Promise<User> {
+    const vendor = await this.findOne(vendorId);
+    
+    if (vendor.role !== 'vendedor') {
+      throw new Error('El usuario no es un vendedor');
+    }
+
+    // Si se proporciona adminId, verificar que el vendedor pertenezca a ese admin o sea legacy (adminId null/undefined)
+    if (adminId !== undefined) {
+      const ADMIN_COLOMBIA_ID = 1;
+      if (adminId === ADMIN_COLOMBIA_ID) {
+        // Admin Colombia puede editar vendedores con adminId = 1 o adminId null/undefined (legacy)
+        if (vendor.adminId !== null && vendor.adminId !== undefined && vendor.adminId !== ADMIN_COLOMBIA_ID) {
+          throw new Error('No tienes permisos para editar este vendedor');
+        }
+      }
+    }
+
+    if (updateData.email) {
+      // Verificar que el email no esté en uso por otro usuario
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: updateData.email },
+      });
+      if (existingUser && existingUser.id !== vendorId) {
+        throw new Error('El correo electrónico ya está en uso');
+      }
+      vendor.email = updateData.email;
+    }
+
+    if (updateData.password) {
+      vendor.password = await bcrypt.hash(updateData.password, 10);
+    }
+
+    return this.usersRepository.save(vendor);
+  }
+
+  async updateVendorVenezuela(vendorId: number, updateData: { email?: string; password?: string }): Promise<User> {
+    const ADMIN_VENEZUELA_ID = 2;
+    const vendor = await this.findOne(vendorId);
+    
+    if (vendor.role !== 'vendedor') {
+      throw new Error('El usuario no es un vendedor');
+    }
+
+    // Verificar que el vendedor pertenezca a admin_venezuela
+    if (vendor.adminId !== ADMIN_VENEZUELA_ID) {
+      throw new Error('No tienes permisos para editar este vendedor');
+    }
+
+    if (updateData.email) {
+      // Verificar que el email no esté en uso por otro usuario
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: updateData.email },
+      });
+      if (existingUser && existingUser.id !== vendorId) {
+        throw new Error('El correo electrónico ya está en uso');
+      }
+      vendor.email = updateData.email;
+    }
+
+    if (updateData.password) {
+      vendor.password = await bcrypt.hash(updateData.password, 10);
+    }
 
     return this.usersRepository.save(vendor);
   }
@@ -274,6 +350,30 @@ export class UsersService {
       debt: Number(debtResult.sum || 0),
       paidAmount: Number(paidResult.sum || 0),
     };
+  }
+
+  // Method for marking vendor commissions as paid (for both admins)
+  async markVendorCommissionAsPaid(transactionIds: number[], user: any): Promise<{ affected: number }> {
+    if (!transactionIds || transactionIds.length === 0) {
+      return { affected: 0 };
+    }
+
+    const now = new Date();
+    const transactions = await this.transactionsRepository.find({
+      where: { id: transactionIds as any, status: TransactionStatus.COMPLETADO },
+    });
+
+    if (!transactions.length) {
+      return { affected: 0 };
+    }
+
+    transactions.forEach((tx) => {
+      tx.isCommissionPaidToVendor = true;
+      tx.commissionPaidAt = now;
+    });
+
+    const result = await this.transactionsRepository.save(transactions);
+    return { affected: result.length };
   }
 }
 

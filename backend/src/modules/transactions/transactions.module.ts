@@ -8,12 +8,14 @@ import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 import { VenezuelaPayment } from './entities/venezuela-payment.entity';
 import { RatesModule } from '../rates/rates.module';
 import { ProofsModule } from '../proofs/proofs.module';
+import { AccountsModule } from '../accounts/accounts.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Transaction, TransactionHistory, Beneficiary, VenezuelaPayment]),
     RatesModule,
     ProofsModule,
+    AccountsModule,
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],

@@ -86,6 +86,9 @@ export class Transaction {
   @Column({ nullable: true })
   comprobanteVenezuela: string; // URL del comprobante de Venezuela
 
+  @Column({ nullable: true, name: 'vendor_payment_proof' })
+  vendorPaymentProof: string; // URL del comprobante de pago inicial del vendedor (para vendedores de Venezuela)
+
   @Column('text', { nullable: true })
   notes: string;
 
@@ -130,5 +133,8 @@ export class Transaction {
 
   @Column({ type: 'boolean', default: false, name: 'has_custom_rate' })
   hasCustomRate: boolean; // Indica si el vendedor usó una tasa personalizada
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, name: 'transaction_commission' })
+  transactionCommission: number; // Comisión específica de esta transacción (2%, 4%, 5%, etc.)
 }
 

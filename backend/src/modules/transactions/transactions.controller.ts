@@ -44,6 +44,29 @@ export class TransactionsController {
     return this.transactionsService.create(createTransactionDto, user);
   }
 
+  @Post('with-proof')
+  @UseInterceptors(
+    FileInterceptor('paymentProof', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+      fileFilter: (req, file, cb) => {
+        if (file && !file.mimetype.match(/\/(jpg|jpeg|png|pdf)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes y PDFs'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async createWithProof(
+    @Body() createTransactionDto: any,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.createWithProof(createTransactionDto, file, user);
+  }
+
   @Get()
   findAll(@CurrentUser() user: any, @Query() paginationDto: PaginationDto & { startDate?: string; endDate?: string }) {
     return this.transactionsService.findAll(user, paginationDto);
@@ -287,6 +310,7 @@ export class TransactionsController {
   async completeTransfer(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body('accountId') accountId: string,
     @CurrentUser() user: any,
   ) {
     let voucherPath: string | null = null;
@@ -296,7 +320,7 @@ export class TransactionsController {
       voucherPath = await this.storageService.uploadFile(file, id, 'venezuela');
     }
 
-    return this.transactionsService.completeTransfer(+id, voucherPath, user);
+    return this.transactionsService.completeTransfer(+id, voucherPath, accountId ? +accountId : null, user);
   }
 
   @Post(':id/update-voucher')
@@ -425,98 +449,6 @@ export class TransactionsController {
     return this.transactionsService.getTransactionsWithPurchaseRate(query, user);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.transactionsService.findOne(+id, user);
-  }
-
-  @Get(':id/history')
-  getHistory(@Param('id') id: string) {
-    return this.transactionsService.getHistory(+id);
-  }
-
-  @Patch(':id')
-  @Roles(UserRole.VENDEDOR, UserRole.CLIENTE)
-  update(
-    @Param('id') id: string,
-    @Body() updateTransactionDto: UpdateTransactionDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.transactionsService.update(+id, updateTransactionDto, user);
-  }
-
-  @Patch(':id/status')
-  @Roles(UserRole.ADMIN_COLOMBIA, UserRole.ADMIN_VENEZUELA)
-  updateStatus(
-    @Param('id') id: string,
-    @Body() updateStatusDto: UpdateTransactionStatusDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.transactionsService.updateStatus(+id, updateStatusDto, user);
-  }
-
-  @Post(':id/enter-edit')
-  @Roles(UserRole.VENDEDOR, UserRole.CLIENTE)
-  enterEditMode(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.transactionsService.enterEditMode(+id, user);
-  }
-
-  @Post(':id/cancel')
-  @Roles(UserRole.VENDEDOR, UserRole.CLIENTE)
-  cancel(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.transactionsService.cancel(+id, user);
-  }
-
-  @Post(':id/resend')
-  @Roles(UserRole.VENDEDOR)
-  resendRejected(
-    @Param('id') id: string,
-    @Body() updateData: any,
-    @CurrentUser() user: any,
-  ) {
-    return this.transactionsService.resendRejectedTransaction(+id, updateData, user);
-  }
-
-  /**
-   * Obtiene URLs firmadas para los comprobantes de una transacción
-   */
-  @Get(':id/proofs')
-  async getTransactionProofs(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
-    // Primero obtener la transacción para verificar permisos
-    const transaction = await this.transactionsService.findOne(+id, user);
-
-    const result: { comprobanteCliente?: string; comprobanteVenezuela?: string } = {};
-
-    // Generar signed URLs para cada comprobante que exista
-    if (transaction.comprobanteCliente) {
-      // Si es una ruta de Supabase (no local legacy)
-      if (!transaction.comprobanteCliente.startsWith('/uploads/')) {
-        result.comprobanteCliente = await this.storageService.getSignedUrl(transaction.comprobanteCliente);
-      } else {
-        result.comprobanteCliente = transaction.comprobanteCliente;
-      }
-    }
-
-    if (transaction.comprobanteVenezuela) {
-      if (!transaction.comprobanteVenezuela.startsWith('/uploads/')) {
-        result.comprobanteVenezuela = await this.storageService.getSignedUrl(transaction.comprobanteVenezuela);
-      } else {
-        result.comprobanteVenezuela = transaction.comprobanteVenezuela;
-      }
-    }
-
-    return result;
-  }
-
-  @Delete(':id')
-  @Roles(UserRole.ADMIN_COLOMBIA)
-  remove(@Param('id') id: string) {
-    return this.transactionsService.remove(+id);
-  }
-
   // Venezuela Payment endpoints
   /**
    * Obtiene el detalle completo de la deuda con Admin Venezuela
@@ -586,5 +518,125 @@ export class TransactionsController {
   @Roles(UserRole.ADMIN_COLOMBIA)
   deleteVenezuelaPayment(@Param('id') id: string, @CurrentUser() user: any) {
     return this.transactionsService.deleteVenezuelaPayment(+id, user);
+  }
+
+  /**
+   * Obtiene el historial de transacciones de Admin Venezuela (de sus vendedores)
+   */
+  @Get('admin-venezuela/history')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  getHistoryAdminVenezuela(@Query() query: any) {
+    console.log('🎯 CONTROLLER getHistoryAdminVenezuela called');
+    return this.transactionsService.getHistoryAdminVenezuela(query);
+  }
+
+  /**
+   * Marca la comisión como pagada al vendedor para Admin Venezuela
+   */
+  @Post('admin-venezuela/commission/mark-paid')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  markVendorCommissionAsPaidVenezuela(
+    @Body('transactionIds') transactionIds: number[],
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.markVendorCommissionAsPaidVenezuela(transactionIds, user);
+  }
+
+  // ===== Routes with dynamic :id parameter - MUST BE AT THE END =====
+  
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.transactionsService.findOne(+id, user);
+  }
+
+  @Get(':id/history')
+  getHistory(@Param('id') id: string) {
+    const transactionId = parseInt(id, 10);
+    if (isNaN(transactionId) || transactionId <= 0) {
+      throw new Error('Invalid transaction ID');
+    }
+    return this.transactionsService.getHistory(transactionId);
+  }
+
+  /**
+   * Obtiene URLs firmadas para los comprobantes de una transacción
+   */
+  @Get(':id/proofs')
+  async getTransactionProofs(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    // Primero obtener la transacción para verificar permisos
+    const transaction = await this.transactionsService.findOne(+id, user);
+
+    const result: { comprobanteCliente?: string; comprobanteVenezuela?: string } = {};
+
+    // Generar signed URLs para cada comprobante que exista
+    if (transaction.comprobanteCliente) {
+      // Si es una ruta de Supabase (no local legacy)
+      if (!transaction.comprobanteCliente.startsWith('/uploads/')) {
+        result.comprobanteCliente = await this.storageService.getSignedUrl(transaction.comprobanteCliente);
+      } else {
+        result.comprobanteCliente = transaction.comprobanteCliente;
+      }
+    }
+
+    if (transaction.comprobanteVenezuela) {
+      if (!transaction.comprobanteVenezuela.startsWith('/uploads/')) {
+        result.comprobanteVenezuela = await this.storageService.getSignedUrl(transaction.comprobanteVenezuela);
+      } else {
+        result.comprobanteVenezuela = transaction.comprobanteVenezuela;
+      }
+    }
+
+    return result;
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.VENDEDOR, UserRole.CLIENTE)
+  update(
+    @Param('id') id: string,
+    @Body() updateTransactionDto: UpdateTransactionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.update(+id, updateTransactionDto, user);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN_COLOMBIA, UserRole.ADMIN_VENEZUELA)
+  updateStatus(
+    @Param('id') id: string,
+    @Body() updateStatusDto: UpdateTransactionStatusDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.updateStatus(+id, updateStatusDto, user);
+  }
+
+  @Post(':id/enter-edit')
+  @Roles(UserRole.VENDEDOR, UserRole.CLIENTE)
+  enterEditMode(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.transactionsService.enterEditMode(+id, user);
+  }
+
+  @Post(':id/cancel')
+  @Roles(UserRole.VENDEDOR, UserRole.CLIENTE)
+  cancel(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.transactionsService.cancel(+id, user);
+  }
+
+  @Post(':id/resend')
+  @Roles(UserRole.VENDEDOR)
+  resendRejected(
+    @Param('id') id: string,
+    @Body() updateData: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.resendRejectedTransaction(+id, updateData, user);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN_COLOMBIA)
+  remove(@Param('id') id: string) {
+    return this.transactionsService.remove(+id);
   }
 }

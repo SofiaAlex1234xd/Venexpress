@@ -15,6 +15,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 @Controller('users')
@@ -31,14 +32,20 @@ export class UsersController {
   // Admin Colombia endpoints
   @Get('vendors')
   @Roles(UserRole.ADMIN_COLOMBIA)
-  findAllVendors() {
-    return this.usersService.findAllVendors();
+  findAllVendors(@CurrentUser('id') adminId: number) {
+    return this.usersService.findAllVendors(adminId);
   }
 
   @Post('vendors')
   @Roles(UserRole.ADMIN_COLOMBIA)
-  createVendor(@Body() createVendorDto: any) {
-    return this.usersService.createVendor(createVendorDto);
+  createVendor(@Body() createVendorDto: any, @CurrentUser('id') adminId: number) {
+    return this.usersService.createVendor(createVendorDto, adminId);
+  }
+
+  @Patch('vendors/:id')
+  @Roles(UserRole.ADMIN_COLOMBIA)
+  updateVendor(@Param('id') id: string, @Body() updateData: { email?: string; password?: string }, @CurrentUser('id') adminId: number) {
+    return this.usersService.updateVendor(+id, updateData, adminId);
   }
 
   @Get(':id/debt-details')
@@ -85,6 +92,36 @@ export class UsersController {
   @Roles(UserRole.ADMIN_COLOMBIA)
   toggleBan(@Param('id') id: string, @Body() toggleBanDto: any) {
     return this.usersService.toggleBanUser(+id, toggleBanDto.isBanned);
+  }
+
+  // Admin Venezuela endpoints
+  @Get('venezuela/vendors')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  findAllVendorsVenezuela() {
+    const ADMIN_VENEZUELA_ID = 2; // ID fijo del admin de Venezuela
+    return this.usersService.findAllVendors(ADMIN_VENEZUELA_ID);
+  }
+
+  @Post('venezuela/vendors')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  createVendorVenezuela(@Body() createVendorDto: any) {
+    const ADMIN_VENEZUELA_ID = 2; // ID fijo del admin de Venezuela
+    return this.usersService.createVendor({ ...createVendorDto, commission: 5 }, ADMIN_VENEZUELA_ID);
+  }
+
+  @Patch('venezuela/vendors/:id')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  updateVendorVenezuela(@Param('id') id: string, @Body() updateData: { email?: string; password?: string }) {
+    return this.usersService.updateVendorVenezuela(+id, updateData);
+  }
+
+  @Post('venezuela/commission/mark-paid')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  markVendorCommissionAsPaidVenezuela(
+    @Body('transactionIds') transactionIds: number[],
+    @CurrentUser() user: any,
+  ) {
+    return this.usersService.markVendorCommissionAsPaid(transactionIds, user);
   }
 }
 

@@ -10,6 +10,8 @@ import Alert from '@/components/ui/Alert';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { transactionsService } from '@/services/transactions.service';
 import { Transaction } from '@/types/transaction';
+import { accountsService } from '@/services/accounts.service';
+import { Account } from '@/types/account';
 
 const REJECTION_REASONS = [
     { value: 'cuenta_incorrecta', label: 'Número de cuenta incorrecto' },
@@ -35,6 +37,8 @@ export default function PendingTransfersPage() {
     const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
     const [completeVoucher, setCompleteVoucher] = useState<File | null>(null);
     const [completeVoucherPreview, setCompleteVoucherPreview] = useState<string>('');
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
 
     // Reject modal states
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -57,6 +61,10 @@ export default function PendingTransfersPage() {
     useEffect(() => {
         if (!authLoading && user) {
             loadTransactions();
+            // Cargar cuentas si es admin_venezuela
+            if (user.role === 'admin_venezuela') {
+                loadAccounts();
+            }
 
             const intervalId = setInterval(() => {
                 loadTransactions();
@@ -65,6 +73,15 @@ export default function PendingTransfersPage() {
             return () => clearInterval(intervalId);
         }
     }, [authLoading, user]);
+
+    const loadAccounts = async () => {
+        try {
+            const data = await accountsService.findAll();
+            setAccounts(data);
+        } catch (error) {
+            console.error('Error loading accounts:', error);
+        }
+    };
 
     const loadTransactions = async () => {
         try {
@@ -101,6 +118,7 @@ export default function PendingTransfersPage() {
         setSelectedTransaction(transaction);
         setCompleteVoucher(null);
         setCompleteVoucherPreview('');
+        setSelectedAccountId(null);
         setIsCompleteModalOpen(true);
     };
 
@@ -122,9 +140,46 @@ export default function PendingTransfersPage() {
     const handleComplete = async () => {
         if (!selectedTransaction) return;
 
+        // Si es admin_venezuela, la selección de cuenta es OBLIGATORIA
+        if (isAdminVenezuela) {
+            if (!selectedAccountId) {
+                setAlertState({
+                    isOpen: true,
+                    message: 'Debes seleccionar una cuenta de donde se sacó el dinero para completar la transacción',
+                    variant: 'error'
+                });
+                return;
+            }
+
+            const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+            if (!selectedAccount) {
+                setAlertState({
+                    isOpen: true,
+                    message: 'La cuenta seleccionada no existe',
+                    variant: 'error'
+                });
+                return;
+            }
+
+            const accountBalance = parseFloat(selectedAccount.balance.toString());
+            const transactionAmount = parseFloat(selectedTransaction.amountBs.toString());
+            if (accountBalance < transactionAmount) {
+                setAlertState({
+                    isOpen: true,
+                    message: `Saldo insuficiente en ${selectedAccount.name}. Disponible: ${accountBalance.toFixed(2)} Bs, Requerido: ${transactionAmount} Bs`,
+                    variant: 'error'
+                });
+                return;
+            }
+        }
+
         setProcessing(true);
         try {
-            await transactionsService.completeTransfer(selectedTransaction.id, completeVoucher || undefined);
+            await transactionsService.completeTransfer(
+                selectedTransaction.id, 
+                completeVoucher || undefined,
+                selectedAccountId || undefined
+            );
             setIsCompleteModalOpen(false);
             setAlertState({
                 isOpen: true,
@@ -132,6 +187,10 @@ export default function PendingTransfersPage() {
                 variant: 'success'
             });
             await loadTransactions();
+            // Recargar cuentas si es admin_venezuela
+            if (isAdminVenezuela) {
+                await loadAccounts();
+            }
         } catch (error: any) {
             setAlertState({
                 isOpen: true,
@@ -358,14 +417,30 @@ export default function PendingTransfersPage() {
                         <div className="space-y-4">
                             {transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((transaction) => {
                                 const isCustomRate = hasCustomRate(transaction);
+                                const isVendorVenezuela = transaction.createdBy?.adminId === 2;
+                                const hasVendorProof = !!transaction.vendorPaymentProof;
+                                
+                                // Determinar el color de fondo según el tipo de vendedor
+                                let bgColorClass = 'border border-gray-200';
+                                if (isAdminVenezuela) {
+                                    if (isVendorVenezuela) {
+                                        // Vendedores de admin_venezuela - color verde claro
+                                        bgColorClass = 'border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50';
+                                    } else {
+                                        // Vendedores de admin_colombia - color azul claro
+                                        bgColorClass = 'border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-cyan-50';
+                                    }
+                                }
+                                
+                                // Si tiene tasa personalizada, override con color morado
+                                if (isCustomRate) {
+                                    bgColorClass = 'border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50';
+                                }
+                                
                                 return (
                                 <div 
                                     key={transaction.id} 
-                                    className={`relative rounded-xl p-4 hover:shadow-md transition-shadow ${
-                                        isCustomRate 
-                                            ? 'border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50' 
-                                            : 'border border-gray-200'
-                                    }`}
+                                    className={`relative rounded-xl p-4 hover:shadow-md transition-shadow ${bgColorClass}`}
                                 >
                                     {isCustomRate && (
                                         <div className="absolute top-2 left-2 sm:top-4 sm:left-4 px-3 py-1 bg-purple-600 text-white text-xs font-bold rounded-full flex items-center gap-1 z-10">
@@ -432,6 +507,21 @@ export default function PendingTransfersPage() {
                                         {/* Actions */}
                                         {!isAdminColombia && (
                                             <div className="flex flex-col sm:flex-row gap-2 lg:w-auto">
+                                                {/* Botón para ver comprobante si es vendedor de Venezuela y tiene comprobante */}
+                                                {isAdminVenezuela && isVendorVenezuela && hasVendorProof && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => window.open(transaction.vendorPaymentProof, '_blank')}
+                                                        className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                                    >
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                        Ver Comprobante
+                                                    </Button>
+                                                )}
                                                 <Button
                                                     size="sm"
                                                     onClick={() => openCompleteModal(transaction)}
@@ -472,6 +562,15 @@ export default function PendingTransfersPage() {
                                     <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-4 text-sm">
                                         <span className="text-gray-500">
                                             Vendedor: <span className="text-gray-900 font-medium">{transaction.createdBy.name}</span>
+                                            {isAdminVenezuela && (
+                                                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                    isVendorVenezuela 
+                                                        ? 'bg-green-100 text-green-700' 
+                                                        : 'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                    {isVendorVenezuela ? '🇻🇪 Venezuela' : '🇨🇴 Colombia'}
+                                                </span>
+                                            )}
                                         </span>
                                         <span className="text-gray-500">
                                             Tasa:{' '}
@@ -673,6 +772,53 @@ export default function PendingTransfersPage() {
                             <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                                 <p className="text-xs text-blue-600 font-medium mb-1">Notas</p>
                                 <p className="text-sm text-blue-900">{selectedTransaction.notes}</p>
+                            </div>
+                        )}
+
+                        {/* Account Selection (Admin Venezuela only) */}
+                        {isAdminVenezuela && accounts.length > 0 && (
+                            <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl">
+                                <label className="block text-sm font-bold text-purple-900 mb-3">
+                                    💰 ¿De qué cuenta sacaste el dinero? *
+                                </label>
+                                <p className="text-xs text-purple-700 mb-3">
+                                    <strong>Obligatorio:</strong> Debes seleccionar una cuenta. El sistema restará automáticamente {selectedTransaction.amountBs} Bs de su saldo.
+                                </p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {accounts.map((account) => (
+                                        <button
+                                            key={account.id}
+                                            type="button"
+                                            onClick={() => setSelectedAccountId(account.id === selectedAccountId ? null : account.id)}
+                                            className={`p-3 rounded-lg border-2 transition-all text-left ${
+                                                selectedAccountId === account.id
+                                                    ? 'border-purple-500 bg-purple-100'
+                                                    : 'border-purple-200 hover:border-purple-300 bg-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-gray-900">{account.name}</p>
+                                                    {(() => {
+                                                        const accountBalance = parseFloat(account.balance.toString());
+                                                        const transactionAmount = parseFloat(selectedTransaction.amountBs.toString());
+                                                        return (
+                                                            <p className={`text-sm ${accountBalance >= transactionAmount ? 'text-green-600' : 'text-red-600'}`}>
+                                                                Saldo: {accountBalance.toFixed(2)} Bs
+                                                                {accountBalance < transactionAmount && ' (⚠️ Insuficiente)'}
+                                                            </p>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                {selectedAccountId === account.id && (
+                                                    <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
 

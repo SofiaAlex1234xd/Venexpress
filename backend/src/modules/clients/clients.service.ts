@@ -31,13 +31,18 @@ export class ClientsService {
     return this.clientsRepository.save(client);
   }
 
-  async findAll(search?: string, userId?: number, userRole?: string, vendorId?: number): Promise<Client[]> {
+  async findAll(search?: string, userId?: number, userRole?: string, vendorId?: number, adminId?: number): Promise<Client[]> {
     // Construir condiciones de búsqueda
     const whereConditions: any = {};
 
     // Si es vendedor, solo ver sus propios clientes
     if (userRole === 'vendedor') {
       whereConditions.vendedor = { id: userId };
+    } else if (userRole === 'admin_colombia' || userRole === 'admin_venezuela') {
+      // Admin solo ve clientes de sus vendedores (adminId debe ser proporcionado)
+      if (adminId) {
+        whereConditions.vendedor = { adminId };
+      }
     } else if (vendorId) {
       // Si se proporciona un vendorId (por ejemplo, por un admin), filtrar por ese vendedor
       whereConditions.vendedor = { id: vendorId };

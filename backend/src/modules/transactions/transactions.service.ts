@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, Between } from 'typeorm';
 import { Transaction } from './entities/transaction.entity';
@@ -16,6 +16,7 @@ import { VenezuelaPayment } from './entities/venezuela-payment.entity';
 import { CreateVenezuelaPaymentDto } from './dto/create-venezuela-payment.dto';
 import { VenezuelaDebtSummary, TransactionDebtDetail, VenezuelaPaymentDetail } from './dto/venezuela-debt-detail.dto';
 import { StorageService } from '../../common/services/storage.service';
+import { AccountsService } from '../accounts/accounts.service';
 
 /**
  * Parsea una fecha en formato YYYY-MM-DD a un objeto Date en zona horaria local
@@ -39,6 +40,8 @@ function parseLocalDate(dateString: string): Date {
 
 @Injectable()
 export class TransactionsService {
+  private readonly logger = new Logger(TransactionsService.name);
+
   constructor(
     @InjectRepository(Transaction)
     private transactionsRepository: Repository<Transaction>,
@@ -50,6 +53,7 @@ export class TransactionsService {
     private venezuelaPaymentsRepository: Repository<VenezuelaPayment>,
     private ratesService: RatesService,
     private storageService: StorageService,
+    private accountsService: AccountsService,
   ) { }
 
   async create(createTransactionDto: CreateTransactionDto, user: any): Promise<Transaction> {
@@ -81,12 +85,21 @@ export class TransactionsService {
       throw new Error('Debe proporcionar amountCOP o amountBs');
     }
 
+    // Calcular la comisión para esta transacción
+    let transactionCommission = user.commission || 2; // Default del usuario
+
+    // Si es vendedor de admin_venezuela (adminId 2) y usa tasa personalizada
+    if (user.adminId === 2 && hasCustomRate) {
+      transactionCommission = 4; // Comisión reducida por usar tasa personalizada
+    }
+
     const transaction = this.transactionsRepository.create({
       ...createTransactionDto,
       amountCOP,
       amountBs,
       saleRate: rateToUse,
       hasCustomRate, // Agregar la bandera
+      transactionCommission, // Guardar la comisión específica
       createdBy: { id: user.id } as any,
       beneficiary: { id: beneficiary.id } as any,
 
@@ -116,6 +129,109 @@ export class TransactionsService {
       savedTransaction.id,
       TransactionStatus.PENDIENTE,
       'Transacción creada',
+      user.id,
+    );
+
+    return savedTransaction;
+  }
+
+  async createWithProof(createTransactionDto: any, file: Express.Multer.File, user: any): Promise<Transaction> {
+    // Convertir los campos de string a number si vienen de FormData
+    const parsedDto = {
+      ...createTransactionDto,
+      beneficiaryId: parseInt(createTransactionDto.beneficiaryId, 10),
+      clientPresencialId: createTransactionDto.clientPresencialId ? parseInt(createTransactionDto.clientPresencialId, 10) : undefined,
+      amountCOP: createTransactionDto.amountCOP ? parseFloat(createTransactionDto.amountCOP) : undefined,
+      amountBs: createTransactionDto.amountBs ? parseFloat(createTransactionDto.amountBs) : undefined,
+      customRate: createTransactionDto.customRate ? parseFloat(createTransactionDto.customRate) : undefined,
+    };
+
+    // Obtener tasa actual
+    const currentRate = await this.ratesService.getCurrentRate();
+
+    // Obtener Destinatario completo
+    const beneficiary = await this.beneficiariesRepository.findOne({
+      where: { id: parsedDto.beneficiaryId },
+    });
+
+    if (!beneficiary) {
+      throw new NotFoundException('Destinatario no encontrado');
+    }
+
+    // Calcular montos según la tasa
+    let amountCOP: number;
+    let amountBs: number;
+    const rateToUse = parsedDto.customRate || currentRate.saleRate;
+    const hasCustomRate = !!parsedDto.customRate;
+
+    if (parsedDto.amountCOP) {
+      amountCOP = parsedDto.amountCOP;
+      amountBs = amountCOP / rateToUse;
+    } else if (parsedDto.amountBs) {
+      amountBs = parsedDto.amountBs;
+      amountCOP = amountBs * rateToUse;
+    } else {
+      throw new Error('Debe proporcionar amountCOP o amountBs');
+    }
+
+    // Calcular la comisión para esta transacción
+    let transactionCommission = user.commission || 2; // Default del usuario
+
+    // Si es vendedor de admin_venezuela (adminId 2) y usa tasa personalizada
+    if (user.adminId === 2 && hasCustomRate) {
+      transactionCommission = 4; // Comisión reducida por usar tasa personalizada
+    }
+
+    // Subir el comprobante de pago si se proporciona
+    let vendorPaymentProof: string | null = null;
+    if (file) {
+      vendorPaymentProof = await this.storageService.uploadFile(file, 'temp', 'cliente');
+    }
+
+    const transaction: Transaction = this.transactionsRepository.create({
+      ...parsedDto,
+      amountCOP,
+      amountBs,
+      saleRate: rateToUse,
+      hasCustomRate,
+      transactionCommission, // Guardar la comisión específica
+      vendorPaymentProof,
+      createdBy: { id: user.id } as any,
+      beneficiary: { id: beneficiary.id } as any,
+
+      // Snapshot de datos del Destinatario
+      beneficiaryFullName: beneficiary.fullName,
+      beneficiaryDocumentId: beneficiary.documentId,
+      beneficiaryBankName: beneficiary.bankName,
+      beneficiaryAccountNumber: beneficiary.accountNumber,
+      beneficiaryAccountType: beneficiary.accountType,
+      beneficiaryPhone: beneficiary.phone || null,
+      beneficiaryIsPagoMovil: beneficiary.isPagoMovil || false,
+
+      lastEditedAt: new Date(),
+    }) as Transaction;
+
+    // Asociar cliente si es necesario
+    if (user.role === UserRole.CLIENTE) {
+      transaction.clientApp = { id: user.id } as any;
+    } else if (parsedDto.clientPresencialId) {
+      transaction.clientPresencial = { id: parsedDto.clientPresencialId } as any;
+    }
+
+    const savedTransaction = await this.transactionsRepository.save(transaction);
+
+    // Actualizar la ruta del comprobante con el ID real de la transacción
+    if (file && vendorPaymentProof) {
+      const finalPath = await this.storageService.uploadFile(file, savedTransaction.id, 'cliente');
+      savedTransaction.vendorPaymentProof = finalPath;
+      await this.transactionsRepository.save(savedTransaction);
+    }
+
+    // Crear entrada en historial
+    await this.createHistoryEntry(
+      savedTransaction.id,
+      TransactionStatus.PENDIENTE,
+      'Transacción creada con comprobante de pago',
       user.id,
     );
 
@@ -184,6 +300,9 @@ export class TransactionsService {
   }
 
   async getHistory(transactionId: number): Promise<TransactionHistory[]> {
+    if (!transactionId || isNaN(transactionId) || transactionId <= 0) {
+      return [];
+    }
     return this.historyRepository.find({
       where: { transaction: { id: transactionId } },
       relations: ['changedBy'],
@@ -757,15 +876,46 @@ export class TransactionsService {
 
   // Admin Venezuela methods
   async getPendingVenezuela(): Promise<Transaction[]> {
-    return this.transactionsRepository.find({
+    const transactions = await this.transactionsRepository.find({
       where: { status: TransactionStatus.PENDIENTE_VENEZUELA },
       relations: ['createdBy', 'clientPresencial', 'clientApp', 'beneficiary'],
       withDeleted: true,
       order: { createdAt: 'ASC' },
     });
+
+    // Generar URLs firmadas para los comprobantes
+    const transactionsWithSignedUrls = await Promise.all(
+      transactions.map(async (tx) => {
+        // Generar URL firmada para comprobante del vendedor (vendorPaymentProof)
+        if (tx.vendorPaymentProof) {
+          try {
+            if (!tx.vendorPaymentProof.startsWith('/uploads/')) {
+              tx.vendorPaymentProof = await this.storageService.getSignedUrl(tx.vendorPaymentProof);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for vendorPaymentProof of transaction ${tx.id}:`, error);
+          }
+        }
+        
+        // Generar URL firmada para comprobante de Venezuela
+        if (tx.comprobanteVenezuela) {
+          try {
+            if (!tx.comprobanteVenezuela.startsWith('/uploads/')) {
+              tx.comprobanteVenezuela = await this.storageService.getSignedUrl(tx.comprobanteVenezuela);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for comprobanteVenezuela of transaction ${tx.id}:`, error);
+          }
+        }
+        
+        return tx;
+      })
+    );
+
+    return transactionsWithSignedUrls;
   }
 
-  async completeTransfer(id: number, voucherUrl: string, user: any): Promise<Transaction> {
+  async completeTransfer(id: number, voucherUrl: string, accountId: number | null, user: any): Promise<Transaction> {
     const transaction = await this.transactionsRepository.findOne({
       where: { id },
       relations: ['createdBy'],
@@ -779,6 +929,18 @@ export class TransactionsService {
       throw new BadRequestException('Solo se pueden completar transacciones en estado pendiente_venezuela');
     }
 
+    // Si se proporciona accountId, restar el saldo de la cuenta
+    if (accountId) {
+      const amountBs = parseFloat(transaction.amountBs.toString());
+      try {
+        await this.accountsService.withdrawBalance(accountId, amountBs, id, user.id);
+        this.logger.log(`Saldo retirado de cuenta ${accountId}: ${amountBs} Bs para transacción #${id}`);
+      } catch (error) {
+        // Si falla el retiro, lanzar el error para que no se complete la transacción
+        throw error;
+      }
+    }
+
     transaction.status = TransactionStatus.COMPLETADO;
     if (voucherUrl) {
       transaction.comprobanteVenezuela = voucherUrl;
@@ -789,7 +951,9 @@ export class TransactionsService {
     await this.createHistoryEntry(
       id,
       TransactionStatus.COMPLETADO,
-      'Transferencia completada por administrador Venezuela',
+      accountId 
+        ? 'Transferencia completada por administrador Venezuela con retiro de cuenta'
+        : 'Transferencia completada por administrador Venezuela',
       user.id,
     );
 
@@ -1076,9 +1240,11 @@ export class TransactionsService {
   /**
    * Resumen financiero para Admin Colombia: por vendedor y global.
    * Usa solo transacciones COMPLETADAS con tasa de compra establecida.
+   * Filtra solo transacciones de vendedores de Admin Colombia (adminId = 1)
    */
   async getAdminColombiaFinancialSummary(query: any): Promise<any> {
     const { startDate, endDate } = query;
+    const ADMIN_COLOMBIA_ID = 1; // ID fijo del admin de Colombia
 
     let dateFrom: Date;
     let dateTo: Date;
@@ -1097,26 +1263,32 @@ export class TransactionsService {
       dateTo.setHours(23, 59, 59, 999);
     }
 
-    // Para comisiones: TODAS las transacciones completadas (no necesita tasa de compra)
-    const allCompletedTransactions = await this.transactionsRepository.find({
-      where: {
-        status: TransactionStatus.COMPLETADO,
-        createdAt: Between(dateFrom, dateTo),
-      },
-      relations: ['createdBy'],
-      order: { createdAt: 'ASC' },
-    });
+    // Para comisiones: TODAS las transacciones completadas de vendedores de Admin Colombia (no necesita tasa de compra)
+    const allCompletedTransactions = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.createdBy', 'user')
+      .where('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
+      .andWhere('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .andWhere('(user.adminId = :adminId OR (user.role = :role AND user.adminId IS NULL))', { 
+        adminId: ADMIN_COLOMBIA_ID, 
+        role: UserRole.VENDEDOR 
+      })
+      .orderBy('transaction.createdAt', 'ASC')
+      .getMany();
 
-    // Para ganancias/deudas: solo transacciones con tasa de compra definitiva
-    const transactionsWithPurchaseRate = await this.transactionsRepository.find({
-      where: {
-        status: TransactionStatus.COMPLETADO,
-        isPurchaseRateSet: true,
-        createdAt: Between(dateFrom, dateTo),
-      },
-      relations: ['createdBy'],
-      order: { createdAt: 'ASC' },
-    });
+    // Para ganancias/deudas: solo transacciones con tasa de compra definitiva de vendedores de Admin Colombia
+    const transactionsWithPurchaseRate = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.createdBy', 'user')
+      .where('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
+      .andWhere('transaction.isPurchaseRateSet = :isPurchaseRateSet', { isPurchaseRateSet: true })
+      .andWhere('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .andWhere('(user.adminId = :adminId OR (user.role = :role AND user.adminId IS NULL))', { 
+        adminId: ADMIN_COLOMBIA_ID, 
+        role: UserRole.VENDEDOR 
+      })
+      .orderBy('transaction.createdAt', 'ASC')
+      .getMany();
 
     interface VendorAgg {
       vendorId: number;
@@ -1153,7 +1325,8 @@ export class TransactionsService {
       }
 
       const cop = Number(tx.amountCOP) || 0;
-      const commission = cop * 0.02; // 2% para el vendedor
+      const commissionPercentage = (tx.createdBy?.commission || 2) / 100; // Usar comisión del usuario o default 2%
+      const commission = cop * commissionPercentage;
 
       const vendorAgg = byVendor[vendorId];
       vendorAgg.totalCommission += commission;
@@ -1234,11 +1407,14 @@ export class TransactionsService {
   }
 
   /**
-   * Resumen financiero para Admin Venezuela: ganancias y deuda de Colombia.
+   * Resumen financiero para Admin Venezuela: ganancias y deuda de Colombia + comisiones de sus vendedores.
    * Usa solo transacciones COMPLETADAS con tasa de compra establecida.
+   * 
+   * Ganancias = 50/50 de Admin Colombia + 5% de transacciones de sus vendedores
    */
   async getAdminVenezuelaFinancialSummary(query: any): Promise<any> {
     const { startDate, endDate } = query;
+    const ADMIN_VENEZUELA_ID = 2; // ID fijo del admin de Venezuela
 
     let dateFrom: Date;
     let dateTo: Date;
@@ -1258,15 +1434,14 @@ export class TransactionsService {
     }
 
     // Para ganancias/deudas: solo transacciones con tasa de compra definitiva
-    const transactions = await this.transactionsRepository.find({
-      where: {
-        status: TransactionStatus.COMPLETADO,
-        isPurchaseRateSet: true,
-        createdAt: Between(dateFrom, dateTo),
-      },
-      relations: ['createdBy'],
-      order: { createdAt: 'ASC' },
-    });
+    const transactionsWithPurchaseRate = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.createdBy', 'user')
+      .where('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
+      .andWhere('transaction.isPurchaseRateSet = :isPurchaseRateSet', { isPurchaseRateSet: true })
+      .andWhere('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .orderBy('transaction.createdAt', 'ASC')
+      .getMany();
 
     // Detectar si hay transacciones completadas sin tasa de compra definitiva
     const allCompletedTransactions = await this.transactionsRepository.find({
@@ -1281,10 +1456,13 @@ export class TransactionsService {
     );
     const hasTransactionsWithoutPurchaseRate = transactionsWithoutPurchaseRate.length > 0;
 
-    let totalEarnings = 0; // Ganancias de Admin Venezuela
-    let totalDebtFromColombia = 0; // Deuda de Admin Colombia con Venezuela
+    let totalEarningsFromColombia = 0; // Ganancias 50/50 de Admin Colombia
+    let totalEarningsFromOwnVendors = 0; // Ganancias 5% de sus vendedores
+    let totalEarnings = 0; // Total
+    let totalDebtFromColombia = 0; // Deuda de Admin Colombia con Venezuela (SOLO de sus vendedores)
 
-    transactions.forEach((tx) => {
+    // Procesar transacciones para ganancias
+    transactionsWithPurchaseRate.forEach((tx) => {
       const cop = Number(tx.amountCOP) || 0;
       const bs = Number(tx.amountBs) || 0;
       const saleRate = Number(tx.saleRate) || 0;
@@ -1298,12 +1476,49 @@ export class TransactionsService {
       const bolivares = bs;
       const inversion = bolivares * purchaseRate;
       const gananciaSistema = cop - inversion;
-      const gananciaAdminVenezuela = gananciaSistema / 2; // La otra mitad
+      const gananciaAdminVenezuela = gananciaSistema / 2; // La otra mitad de Admin Colombia
       const deudaColombiaConVenezuela = inversion + (gananciaSistema / 2); // Inversión + mitad de Colombia
 
-      totalEarnings += gananciaAdminVenezuela;
-      totalDebtFromColombia += deudaColombiaConVenezuela;
+      // IMPORTANTE: Solo contar ganancias y deuda de transacciones de vendedores de Admin Colombia
+      // Las transacciones de vendedores de Admin Venezuela NO generan deuda de Colombia
+      const isAdminColombiaVendor = !tx.createdBy?.adminId || tx.createdBy?.adminId === 1;
+      
+      if (isAdminColombiaVendor) {
+        // Transacción de Admin Colombia: cuenta para deuda y ganancias 50/50
+        totalEarningsFromColombia += gananciaAdminVenezuela;
+        totalDebtFromColombia += deudaColombiaConVenezuela;
+      }
+
+      // Si la transacción es de sus propios vendedores, agregar comisión (usar transactionCommission)
+      if (tx.createdBy?.adminId === ADMIN_VENEZUELA_ID) {
+        const commissionRate = tx.transactionCommission || tx.createdBy?.commission || 5;
+        const commissionOwnVendor = cop * (commissionRate / 100);
+        totalEarningsFromOwnVendors += commissionOwnVendor;
+      }
     });
+
+    totalEarnings = totalEarningsFromColombia + totalEarningsFromOwnVendors;
+
+    // Detalles de comisiones de vendedores propios
+    const ownVendorsCommissionsDetail = transactionsWithPurchaseRate
+      .filter((tx) => tx.createdBy?.adminId === ADMIN_VENEZUELA_ID)
+      .map((tx) => {
+        const cop = Number(tx.amountCOP) || 0;
+        const commissionRate = tx.transactionCommission || tx.createdBy?.commission || 5;
+        const commissionAmount = cop * (commissionRate / 100);
+
+        return {
+          id: tx.id,
+          createdAt: tx.createdAt,
+          vendorName: tx.createdBy?.name || 'N/A',
+          beneficiaryFullName: tx.beneficiaryFullName,
+          amountCOP: cop,
+          commissionRate,
+          commissionAmount,
+          hasCustomRate: tx.hasCustomRate || false,
+          isPaid: tx.isCommissionPaidToVendor,
+        };
+      });
 
     // Obtener pagos de Colombia a Venezuela
     let payments = [];
@@ -1323,38 +1538,40 @@ export class TransactionsService {
       console.warn('Error fetching venezuela payments:', error.message);
     }
 
-    // Calcular detalles de transacciones
-    const transactionDetails = transactions.map((tx) => {
-      const cop = Number(tx.amountCOP) || 0;
-      const bs = Number(tx.amountBs) || 0;
-      const saleRate = Number(tx.saleRate) || 0;
-      const purchaseRate = Number(tx.purchaseRate) || 0;
+    // Calcular detalles de transacciones (SOLO de Admin Colombia)
+    const transactionDetails = transactionsWithPurchaseRate
+      .filter((tx) => !tx.createdBy?.adminId || tx.createdBy?.adminId === 1) // Solo de Admin Colombia
+      .map((tx) => {
+        const cop = Number(tx.amountCOP) || 0;
+        const bs = Number(tx.amountBs) || 0;
+        const saleRate = Number(tx.saleRate) || 0;
+        const purchaseRate = Number(tx.purchaseRate) || 0;
 
-      if (!saleRate || !purchaseRate) {
-        return null;
-      }
+        if (!saleRate || !purchaseRate) {
+          return null;
+        }
 
-      const bolivares = bs;
-      const inversion = bolivares * purchaseRate;
-      const gananciaSistema = cop - inversion;
-      const gananciaAdminVenezuela = gananciaSistema / 2;
-      const deudaConVenezuela = inversion + gananciaAdminVenezuela;
+        const bolivares = bs;
+        const inversion = bolivares * purchaseRate;
+        const gananciaSistema = cop - inversion;
+        const gananciaAdminVenezuela = gananciaSistema / 2;
+        const deudaConVenezuela = inversion + gananciaAdminVenezuela;
 
-      return {
-        id: tx.id,
-        createdAt: tx.createdAt,
-        vendorName: tx.createdBy?.name || 'N/A',
-        beneficiaryFullName: tx.beneficiaryFullName,
-        amountCOP: cop,
-        amountBs: bs,
-        saleRate,
-        purchaseRate,
-        inversion,
-        gananciaSistema,
-        gananciaAdminVenezuela,
-        deudaConVenezuela,
-      };
-    }).filter(Boolean);
+        return {
+          id: tx.id,
+          createdAt: tx.createdAt,
+          vendorName: tx.createdBy?.name || 'N/A',
+          beneficiaryFullName: tx.beneficiaryFullName,
+          amountCOP: cop,
+          amountBs: bs,
+          saleRate,
+          purchaseRate,
+          inversion,
+          gananciaSistema,
+          gananciaAdminVenezuela,
+          deudaConVenezuela,
+        };
+      }).filter(Boolean);
 
     // Generar URLs firmadas para los comprobantes de los pagos
     const paymentsWithSignedUrls = await Promise.all(
@@ -1385,12 +1602,15 @@ export class TransactionsService {
     );
 
     return {
-      totalEarnings, // Ganancias de Admin Venezuela
+      totalEarnings, // Ganancias totales de Admin Venezuela (50/50 de Colombia + comisiones de sus vendedores)
+      totalEarningsFromColombia, // Desglose: 50/50 de Admin Colombia
+      totalEarningsFromOwnVendors, // Desglose: comisiones de sus vendedores (4% o 5%)
       totalDebtFromColombia, // Deuda total de Admin Colombia
       totalPaid, // Total pagado por Admin Colombia en este período
       pendingDebt: totalDebtFromColombia - totalPaid, // Deuda pendiente
-      transactionCount: transactions.length,
+      transactionCount: transactionsWithPurchaseRate.length,
       transactionDetails, // Detalles con cálculos
+      ownVendorsCommissionsDetail, // Nuevo: Detalles de comisiones de vendedores propios
       payments: paymentsWithSignedUrls,
       dateRange: { from: dateFrom, to: dateTo },
       hasTransactionsWithoutPurchaseRate,
@@ -1530,20 +1750,36 @@ export class TransactionsService {
       return copValue - (bsValue * rate);
     }).reduce((sum, earning) => sum + earning, 0);
 
-    // Ganancias del vendedor (2% del monto COP) para TODAS las transacciones completadas
+    // Ganancias del vendedor (usando transactionCommission específica)
     const vendorEarningsTotal = completedTransactions.reduce((sum, t) => {
       const copValue = parseFloat(t.amountCOP.toString());
-      return sum + copValue * 0.02;
+      // Usar la comisión específica de la transacción, fallback al commission del usuario
+      const commissionPercentage = (t.transactionCommission || user.commission || 2) / 100;
+      return sum + copValue * commissionPercentage;
     }, 0);
 
     const vendorEarningsPaid = completedTransactions
       .filter(t => t.isCommissionPaidToVendor)
       .reduce((sum, t) => {
         const copValue = parseFloat(t.amountCOP.toString());
-        return sum + copValue * 0.02;
+        // Usar la comisión específica de la transacción
+        const commissionPercentage = (t.transactionCommission || user.commission || 2) / 100;
+        return sum + copValue * commissionPercentage;
       }, 0);
 
     const vendorEarningsPending = vendorEarningsTotal - vendorEarningsPaid;
+
+    // Detalle de comisiones por transacción
+    const commissionsDetail = completedTransactions.map(t => ({
+      id: t.id,
+      date: t.createdAt,
+      beneficiaryName: t.beneficiaryFullName,
+      amountCOP: parseFloat(t.amountCOP.toString()),
+      commissionRate: t.transactionCommission || user.commission || 2,
+      commissionAmount: parseFloat(t.amountCOP.toString()) * ((t.transactionCommission || user.commission || 2) / 100),
+      isPaid: t.isCommissionPaidToVendor,
+      hasCustomRate: t.hasCustomRate || false,
+    }));
 
     // Transacciones por día (últimos 30 días o según el rango)
     const transactionsByDay = this.groupTransactionsByDay(transactions);
@@ -1563,6 +1799,7 @@ export class TransactionsService {
       vendorEarningsTotal,
       vendorEarningsPaid,
       vendorEarningsPending,
+      commissionsDetail, // Nuevo campo
       transactionsByDay,
       averageRate: totalTransactions > 0
         ? transactions.reduce((sum, t) => sum + parseFloat(t.saleRate.toString()), 0) / totalTransactions
@@ -1613,15 +1850,59 @@ export class TransactionsService {
 
   // Admin Colombia methods
   async getPendingForAdminColombia(): Promise<Transaction[]> {
-    return this.transactionsRepository.find({
-      where: { status: TransactionStatus.PENDIENTE_VENEZUELA },
-      relations: ['createdBy', 'createdBy.point', 'clientPresencial', 'clientApp', 'beneficiary'],
-      order: { createdAt: 'ASC' },
-    });
+    const ADMIN_COLOMBIA_ID = 1; // ID fijo del admin de Colombia
+    const transactions = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.createdBy', 'createdBy')
+      .leftJoinAndSelect('createdBy.point', 'point')
+      .leftJoinAndSelect('transaction.clientPresencial', 'clientPresencial')
+      .leftJoinAndSelect('transaction.clientApp', 'clientApp')
+      .leftJoinAndSelect('transaction.beneficiary', 'beneficiary')
+      .where('transaction.status = :status', { status: TransactionStatus.PENDIENTE_VENEZUELA })
+      .andWhere('(createdBy.adminId = :adminId OR (createdBy.role = :role AND createdBy.adminId IS NULL))', { 
+        adminId: ADMIN_COLOMBIA_ID, 
+        role: UserRole.VENDEDOR 
+      })
+      .orderBy('transaction.createdAt', 'ASC')
+      .getMany();
+
+    // Generar URLs firmadas para los comprobantes
+    const transactionsWithSignedUrls = await Promise.all(
+      transactions.map(async (tx) => {
+        // Generar URL firmada para comprobante del vendedor (vendorPaymentProof)
+        if (tx.vendorPaymentProof) {
+          try {
+            if (!tx.vendorPaymentProof.startsWith('/uploads/')) {
+              tx.vendorPaymentProof = await this.storageService.getSignedUrl(tx.vendorPaymentProof);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for vendorPaymentProof of transaction ${tx.id}:`, error);
+          }
+        }
+        
+        // Generar URL firmada para comprobante de Venezuela
+        if (tx.comprobanteVenezuela) {
+          try {
+            if (!tx.comprobanteVenezuela.startsWith('/uploads/')) {
+              tx.comprobanteVenezuela = await this.storageService.getSignedUrl(tx.comprobanteVenezuela);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for comprobanteVenezuela of transaction ${tx.id}:`, error);
+          }
+        }
+        
+        return tx;
+      })
+    );
+
+    return transactionsWithSignedUrls;
   }
 
   async getHistoryAdminColombia(query: any): Promise<Transaction[]> {
     const { status, startDate, endDate, vendorId } = query;
+    const ADMIN_COLOMBIA_ID = 1; // ID fijo del admin de Colombia
+
+    console.log('🇨🇴 getHistoryAdminColombia called with:', { status, startDate, endDate, vendorId });
 
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder('transaction')
@@ -1630,9 +1911,18 @@ export class TransactionsService {
       .leftJoinAndSelect('transaction.clientPresencial', 'clientPresencial')
       .leftJoinAndSelect('transaction.clientApp', 'clientApp');
 
-    // Filter by vendor if provided
-    if (vendorId) {
-      queryBuilder.andWhere('transaction.createdBy.id = :vendorId', { vendorId: +vendorId });
+    // Filter by Admin Colombia's vendors only
+    queryBuilder.andWhere('(createdBy.adminId = :adminId OR (createdBy.role = :role AND createdBy.adminId IS NULL))', { 
+      adminId: ADMIN_COLOMBIA_ID, 
+      role: UserRole.VENDEDOR 
+    });
+
+    // Filter by vendor if provided and valid
+    if (vendorId !== undefined && vendorId !== null && vendorId !== '') {
+      const vendorIdNum = typeof vendorId === 'string' ? parseInt(vendorId, 10) : Number(vendorId);
+      if (!isNaN(vendorIdNum) && vendorIdNum > 0) {
+        queryBuilder.andWhere('transaction.createdBy.id = :vendorId', { vendorId: vendorIdNum });
+      }
     }
 
     // Filter by status if provided
@@ -1663,6 +1953,19 @@ export class TransactionsService {
 
     const transactions = await queryBuilder.getMany();
 
+    console.log('🇨🇴 Found transactions:', transactions.length);
+    if (transactions.length > 0) {
+      console.log('🇨🇴 Sample transaction:', {
+        id: transactions[0].id,
+        status: transactions[0].status,
+        amountCOP: transactions[0].amountCOP,
+        createdBy: transactions[0].createdBy?.name,
+        adminId: transactions[0].createdBy?.adminId,
+        isCommissionPaidToVendor: transactions[0].isCommissionPaidToVendor,
+        createdAt: transactions[0].createdAt,
+      });
+    }
+
     // Generar URLs firmadas para los comprobantes de pago
     const transactionsWithSignedUrls = await Promise.all(
       transactions.map(async (tx) => {
@@ -1684,6 +1987,7 @@ export class TransactionsService {
 
   async getReportsAdminColombia(query: any): Promise<any> {
     const { startDate, endDate, vendorId } = query;
+    const ADMIN_COLOMBIA_ID = 1; // ID fijo del admin de Colombia
 
     let dateFrom: Date;
     let dateTo: Date;
@@ -1709,7 +2013,11 @@ export class TransactionsService {
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
-      .where('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+      .where('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .andWhere('(createdBy.adminId = :adminId OR (createdBy.role = :role AND createdBy.adminId IS NULL))', { 
+        adminId: ADMIN_COLOMBIA_ID, 
+        role: UserRole.VENDEDOR 
+      });
 
     // Filter by vendor if provided
     if (vendorId) {
@@ -1812,6 +2120,7 @@ export class TransactionsService {
 
   async getReportsAdminColombiaCSV(query: any): Promise<any> {
     const { startDate, endDate, vendorId } = query;
+    const ADMIN_COLOMBIA_ID = 1; // ID fijo del admin de Colombia
 
     let dateFrom: Date;
     let dateTo: Date;
@@ -1837,7 +2146,11 @@ export class TransactionsService {
       .createQueryBuilder('transaction')
       .leftJoinAndSelect('transaction.createdBy', 'createdBy')
       .where('transaction.createdAt BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
-      .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETADO });
+      .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
+      .andWhere('(createdBy.adminId = :adminId OR (createdBy.role = :role AND createdBy.adminId IS NULL))', { 
+        adminId: ADMIN_COLOMBIA_ID, 
+        role: UserRole.VENDEDOR 
+      });
 
     // Filter by vendor if provided
     if (vendorId) {
@@ -2201,16 +2514,18 @@ export class TransactionsService {
       dateTo.setHours(23, 59, 59, 999);
     }
 
-    // Obtener transacciones completadas con tasa de compra establecida
-    const transactionsWithRate = await this.transactionsRepository.find({
-      where: {
-        status: TransactionStatus.COMPLETADO,
-        isPurchaseRateSet: true,
-        createdAt: Between(dateFrom, dateTo),
-      },
-      relations: ['createdBy', 'beneficiary'],
-      order: { createdAt: 'ASC' },
-    });
+    // Obtener transacciones completadas con tasa de compra establecida de vendedores de este Admin Colombia
+    const transactionsWithRate = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.createdBy', 'createdBy')
+      .leftJoinAndSelect('transaction.beneficiary', 'beneficiary')
+      .where('transaction.status = :status', { status: TransactionStatus.COMPLETADO })
+      .andWhere('transaction.isPurchaseRateSet = :isPurchaseRateSet', { isPurchaseRateSet: true })
+      .andWhere('createdBy.adminId = :adminId', { adminId: user.id })
+      .andWhere('transaction.createdAt >= :dateFrom', { dateFrom })
+      .andWhere('transaction.createdAt <= :dateTo', { dateTo })
+      .orderBy('transaction.createdAt', 'ASC')
+      .getMany();
 
     let totalDebt = 0;
     const transactionDetails: TransactionDebtDetail[] = [];
@@ -2356,6 +2671,134 @@ export class TransactionsService {
     }
 
     await this.venezuelaPaymentsRepository.remove(payment);
+  }
+
+  /**
+   * Obtiene el historial de transacciones de Admin Venezuela (de sus vendedores)
+   * Solo muestra transacciones completadas, rechazadas o canceladas
+   */
+  async getHistoryAdminVenezuela(query: any): Promise<Transaction[]> {
+    const { status, startDate, endDate, vendorId } = query;
+    const ADMIN_VENEZUELA_ID = 2; // ID fijo del admin de Venezuela
+
+    console.log('🇻🇪 getHistoryAdminVenezuela called with:', { status, startDate, endDate, vendorId });
+
+    const queryBuilder = this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.createdBy', 'createdBy')
+      .leftJoinAndSelect('createdBy.point', 'point')
+      .leftJoinAndSelect('transaction.clientPresencial', 'clientPresencial')
+      .leftJoinAndSelect('transaction.clientApp', 'clientApp');
+
+    // Filter by Admin Venezuela's vendors only (igual que Admin Colombia pero con ID 2)
+    queryBuilder.andWhere('createdBy.adminId = :adminId', { 
+      adminId: ADMIN_VENEZUELA_ID
+    });
+
+    // Filter by vendor if provided and valid
+    if (vendorId !== undefined && vendorId !== null && vendorId !== '') {
+      const vendorIdNum = typeof vendorId === 'string' ? parseInt(vendorId, 10) : Number(vendorId);
+      if (!isNaN(vendorIdNum) && vendorIdNum > 0) {
+        queryBuilder.andWhere('transaction.createdBy.id = :vendorId', { vendorId: vendorIdNum });
+      }
+    }
+
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      queryBuilder.andWhere('transaction.status = :status', { status });
+    } else {
+      // By default, show completed, rejected, and cancelled
+      queryBuilder.andWhere('transaction.status IN (:...statuses)', {
+        statuses: [TransactionStatus.COMPLETADO, TransactionStatus.RECHAZADO, TransactionStatus.CANCELADO_ADMINISTRADOR],
+      });
+    }
+
+    // Filter by date range
+    if (startDate) {
+      // Forzar inicio del día en zona horaria local
+      const start = parseLocalDate(startDate);
+      start.setHours(0, 0, 0, 0);
+      queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: start });
+    }
+    if (endDate) {
+      // Forzar final del día en zona horaria local
+      const end = parseLocalDate(endDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('transaction.createdAt <= :endDate', { endDate: end });
+    }
+
+    queryBuilder.orderBy('transaction.createdAt', 'DESC');
+
+    const transactions = await queryBuilder.getMany();
+
+    console.log('🇻🇪 Found transactions:', transactions.length);
+    if (transactions.length > 0) {
+      console.log('🇻🇪 Sample transaction:', {
+        id: transactions[0].id,
+        status: transactions[0].status,
+        amountCOP: transactions[0].amountCOP,
+        createdBy: transactions[0].createdBy?.name,
+        adminId: transactions[0].createdBy?.adminId,
+        isCommissionPaidToVendor: transactions[0].isCommissionPaidToVendor,
+        createdAt: transactions[0].createdAt,
+      });
+    }
+
+    // Generar URLs firmadas para los comprobantes de pago
+    const transactionsWithSignedUrls = await Promise.all(
+      transactions.map(async (tx) => {
+        if (tx.vendorPaymentProofUrl) {
+          try {
+            if (!tx.vendorPaymentProofUrl.startsWith('/uploads/')) {
+              tx.vendorPaymentProofUrl = await this.storageService.getSignedUrl(tx.vendorPaymentProofUrl);
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for transaction ${tx.id}:`, error);
+          }
+        }
+        return tx;
+      })
+    );
+
+    return transactionsWithSignedUrls;
+  }
+
+  /**
+   * Marca la comisión (5%) como pagada al vendedor para un conjunto de transacciones
+   * Solo Admin Venezuela puede ejecutar esta acción.
+   */
+  async markVendorCommissionAsPaidVenezuela(transactionIds: number[], user: User): Promise<{ affected: number }> {
+    if (user.role !== UserRole.ADMIN_VENEZUELA) {
+      throw new ForbiddenException('Solo Admin Venezuela puede marcar comisiones como pagadas');
+    }
+
+    if (!transactionIds || transactionIds.length === 0) {
+      throw new BadRequestException('Debe proporcionar al menos una transacción');
+    }
+
+    const ADMIN_VENEZUELA_ID = 2; // ID fijo del admin de Venezuela
+
+    const transactions = await this.transactionsRepository.find({
+      where: {
+        id: In(transactionIds),
+        status: TransactionStatus.COMPLETADO,
+        createdBy: { adminId: ADMIN_VENEZUELA_ID },
+      },
+      relations: ['createdBy'],
+    });
+
+    if (!transactions.length) {
+      return { affected: 0 };
+    }
+
+    const now = new Date();
+    transactions.forEach((tx) => {
+      tx.isCommissionPaidToVendor = true;
+      tx.commissionPaidAt = now;
+    });
+
+    const result = await this.transactionsRepository.save(transactions);
+    return { affected: result.length };
   }
 }
 

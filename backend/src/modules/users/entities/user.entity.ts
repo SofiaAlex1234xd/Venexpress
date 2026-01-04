@@ -50,6 +50,16 @@ export class User {
   @Column({ default: false })
   isBanned: boolean;
 
+  @Column({ type: 'int', nullable: true, comment: 'Comisión: 2 o 5%' })
+  commission: number;
+
+  @Column({ type: 'int', nullable: true, comment: 'ID del Admin a quien pertenece este vendedor' })
+  adminId: number;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'adminId' })
+  admin: User;
+
   @CreateDateColumn()
   createdAt: Date;
 

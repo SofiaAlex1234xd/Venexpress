@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useEarningsPassword } from '@/hooks/useEarningsPassword';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import ExchangeCalculator from '@/components/ExchangeCalculator';
+import EarningsPasswordModal from '@/components/EarningsPasswordModal';
 import { ratesService } from '@/services/rates.service';
 import { transactionsService } from '@/services/transactions.service';
 import { ExchangeRate } from '@/types/rate';
@@ -16,6 +18,7 @@ import { getLocalDateString } from '@/utils/date';
 export default function DashboardPage() {
     const router = useRouter();
     const { user, loading } = useAuth();
+    const earningsPassword = useEarningsPassword();
     const [currentRate, setCurrentRate] = useState<ExchangeRate | null>(null);
     const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
     const [stats, setStats] = useState({ total: 0, pendientes: 0, rechazadas: 0, completadas: 0 });
@@ -97,11 +100,13 @@ export default function DashboardPage() {
                 const today = getLocalDateString();
                 const transactions = await transactionsService.getTransactions(100, 0, today, today);
 
-                // Calcular ganancias de hoy (2% de transacciones completadas)
+                // Calcular ganancias de hoy con comisión dinámica (usando transactionCommission)
                 const completedToday = transactions.filter(t => t.status === 'completado');
                 const todayEarningsCalc = completedToday.reduce((sum, t) => {
                     const copValue = parseFloat(t.amountCOP?.toString() || '0');
-                    return sum + (copValue * 0.02); // 2% de comisión
+                    // Usar la comisión específica de la transacción, fallback al commission del usuario
+                    const commissionRate = (t.transactionCommission || user?.commission || 2) / 100;
+                    return sum + (copValue * commissionRate);
                 }, 0);
 
                 const totalStats = {
@@ -176,29 +181,61 @@ export default function DashboardPage() {
 
                 {/* Ganancias de Hoy - Para Admins y Vendedores */}
                 {todayEarnings !== null && (
-                    <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white h-full">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-green-100 text-sm mb-1">Mis Ganancias Hoy</p>
-                                <p className="text-4xl font-bold">
-                                    ${todayEarnings.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
-                                </p>
-                                <p className="text-green-100 text-xs mt-2">
-                                    {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                </p>
-                                <p className="text-green-200 text-xs mt-2 font-medium">
-                                    {user?.role === 'admin_colombia' 
-                                        ? 'Admin Colombia' 
-                                        : user?.role === 'admin_venezuela' 
-                                        ? 'Admin Venezuela' 
-                                        : 'Comisión (2%)'}
-                                </p>
-                            </div>
-                            <svg className="w-20 h-20 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                    </Card>
+                    <>
+                        {user?.role === 'admin_venezuela' && !earningsPassword.isAuthenticated ? (
+                            <Card 
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white h-full cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={earningsPassword.openAuthModal}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-green-100 text-sm mb-1">Mis Ganancias Hoy</p>
+                                        <p className="text-3xl font-bold mb-2">
+                                            🔒 Protegido
+                                        </p>
+                                        <p className="text-green-100 text-xs mt-2">
+                                            {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                        <p className="text-green-200 text-xs mt-2 font-medium">
+                                            Click para acceder
+                                        </p>
+                                    </div>
+                                    <svg className="w-20 h-20 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                            </Card>
+                        ) : (
+                            <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white h-full">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-green-100 text-sm mb-1">Mis Ganancias Hoy</p>
+                                        <p className="text-4xl font-bold">
+                                            ${todayEarnings.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                        </p>
+                                        <p className="text-green-100 text-xs mt-2">
+                                            {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                        <p className="text-green-200 text-xs mt-2 font-medium">
+                                            {user?.role === 'admin_colombia' 
+                                                ? 'Admin Colombia' 
+                                                : user?.role === 'admin_venezuela' 
+                                                ? 'Admin Venezuela' 
+                                                : 'Comisión (5%)'}
+                                        </p>
+                                    </div>
+                                    <svg className="w-20 h-20 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                            </Card>
+                        )}
+                        <EarningsPasswordModal
+                            isOpen={earningsPassword.showModal}
+                            onClose={earningsPassword.closeAuthModal}
+                            onAuthenticate={earningsPassword.authenticate}
+                        />
+                    </>
                 )}
             </div>
 
