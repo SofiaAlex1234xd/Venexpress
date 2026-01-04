@@ -23,9 +23,15 @@ export interface CreateVendorDto {
 }
 
 export const usersService = {
-    // Get all vendors
+    // Get all vendors (Admin Colombia)
     async getVendors(): Promise<Vendor[]> {
         const response = await api.get('/users/vendors');
+        return response.data;
+    },
+
+    // Get all vendors (Admin Venezuela)
+    async getVendorsVenezuela(): Promise<Vendor[]> {
+        const response = await api.get('/users/venezuela/vendors');
         return response.data;
     },
 

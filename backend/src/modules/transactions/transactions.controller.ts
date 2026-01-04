@@ -587,4 +587,25 @@ export class TransactionsController {
   deleteVenezuelaPayment(@Param('id') id: string, @CurrentUser() user: any) {
     return this.transactionsService.deleteVenezuelaPayment(+id, user);
   }
+
+  /**
+   * Obtiene el historial de transacciones de Admin Venezuela (de sus vendedores)
+   */
+  @Get('admin-venezuela/history')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  getHistoryAdminVenezuela(@Query() query: any) {
+    return this.transactionsService.getHistoryAdminVenezuela(query);
+  }
+
+  /**
+   * Marca la comisión como pagada al vendedor para Admin Venezuela
+   */
+  @Post('admin-venezuela/commission/mark-paid')
+  @Roles(UserRole.ADMIN_VENEZUELA)
+  markVendorCommissionAsPaidVenezuela(
+    @Body('transactionIds') transactionIds: number[],
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.markVendorCommissionAsPaidVenezuela(transactionIds, user);
+  }
 }

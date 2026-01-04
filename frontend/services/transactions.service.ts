@@ -313,4 +313,24 @@ export const transactionsService = {
     async deleteVenezuelaPayment(id: number): Promise<void> {
         await api.delete(`/transactions/venezuela-debt/payment/${id}`);
     },
+
+    /**
+     * Obtiene el historial de transacciones de Admin Venezuela (de sus vendedores)
+     */
+    async getHistoryAdminVenezuela(status?: string, startDate?: string, endDate?: string, vendorId?: number): Promise<Transaction[]> {
+        const response = await api.get<Transaction[]>('/transactions/admin-venezuela/history', {
+            params: { status, startDate, endDate, vendorId },
+        });
+        return response.data;
+    },
+
+    /**
+     * Marca la comisión como pagada al vendedor para Admin Venezuela
+     */
+    async markVendorCommissionAsPaidVenezuela(transactionIds: number[]): Promise<{ affected: number }> {
+        const response = await api.post<{ affected: number }>('/transactions/admin-venezuela/commission/mark-paid', {
+            transactionIds,
+        });
+        return response.data;
+    },
 };

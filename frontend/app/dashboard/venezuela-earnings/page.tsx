@@ -210,6 +210,39 @@ export default function VenezuelaEarningsPage() {
             </div>
           </div>
 
+          {/* Desglose de Ganancias */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Ganancias de Admin Colombia (50/50) */}
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium opacity-90">Ganancias de Admin Colombia</h3>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <p className="text-3xl font-bold">
+                ${summary.totalEarningsFromColombia.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs opacity-75 mt-1">50/50 del sistema (COP)</p>
+              <p className="text-xs opacity-75 mt-2">Proviene del cálculo: (COP - Inversión) ÷ 2</p>
+            </div>
+
+            {/* Ganancias de sus Vendedores (5%) */}
+            <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl shadow-lg p-6 text-white">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium opacity-90">Ganancias de Vendedores Propios</h3>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-3xl font-bold">
+                ${summary.totalEarningsFromOwnVendors.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs opacity-75 mt-1">5% de comisión por vendedor (COP)</p>
+              <p className="text-xs opacity-75 mt-2">Proviene de: Monto COP × 0.05</p>
+            </div>
+          </div>
+
           {/* Información adicional */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Período</h3>
@@ -266,16 +299,16 @@ export default function VenezuelaEarningsPage() {
                 </h4>
                 <div className="text-xs text-blue-800 space-y-1">
                   <p>
-                    <strong>1. Inversión:</strong> Bolívares × Tasa de Compra
+                    <strong>Deuda de Admin Colombia:</strong>
                   </p>
-                  <p>
-                    <strong>2. Ganancia del Sistema:</strong> COP Recibido - Inversión
-                  </p>
-                  <p>
-                    <strong>3. Ganancia Admin Venezuela:</strong> Ganancia del Sistema ÷ 2
-                  </p>
-                  <p className="pt-2 border-t border-blue-300 font-bold">
-                    <strong>DEUDA = Inversión + Ganancia Admin Venezuela</strong>
+                  <ul className="ml-4 space-y-1">
+                    <li>1. Inversión = Bolívares × Tasa de Compra</li>
+                    <li>2. Ganancia del Sistema = COP - Inversión</li>
+                    <li>3. Ganancia Admin Venezuela = Ganancia ÷ 2</li>
+                    <li className="pt-2 border-t border-blue-300"><strong>DEUDA = Inversión + Ganancia Admin Venezuela</strong></li>
+                  </ul>
+                  <p className="pt-3 border-t border-blue-300">
+                    <strong>Comisión de Vendedores:</strong> COP × 5%
                   </p>
                 </div>
               </div>

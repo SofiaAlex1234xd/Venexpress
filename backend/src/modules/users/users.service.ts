@@ -52,7 +52,7 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'password', 'name', 'role', 'phone'],
+      select: ['id', 'email', 'password', 'name', 'role', 'phone', 'adminId', 'commission'],
     });
   }
 
@@ -73,9 +73,16 @@ export class UsersService {
   }
 
   // Admin Colombia methods
-  async findAllVendors(): Promise<User[]> {
+  async findAllVendors(adminId?: number): Promise<User[]> {
+    const where: any = { role: 'vendedor' as any };
+    
+    // Si se proporciona adminId, filtrar por ese admin, de lo contrario, incluir vendedores sin admin asignado (legacy)
+    if (adminId) {
+      where.adminId = adminId;
+    }
+
     const vendors = await this.usersRepository.find({
-      where: { role: 'vendedor' as any },
+      where,
       relations: ['point'],
       order: { createdAt: 'DESC' },
     });
@@ -90,7 +97,7 @@ export class UsersService {
     return vendors;
   }
 
-  async createVendor(createVendorDto: any): Promise<User> {
+  async createVendor(createVendorDto: any, adminId?: number): Promise<User> {
     const hashedPassword = await bcrypt.hash(createVendorDto.password, 10);
 
     const vendor = this.usersRepository.create({
@@ -103,6 +110,8 @@ export class UsersService {
       debt: createVendorDto.initialDebt || 0,
       paidAmount: 0,
       isBanned: false,
+      commission: createVendorDto.commission || 2, // Por defecto 2% (Admin Colombia)
+      adminId: adminId || null, // Asignar al admin que lo crea
     });
 
     return this.usersRepository.save(vendor);
@@ -274,6 +283,30 @@ export class UsersService {
       debt: Number(debtResult.sum || 0),
       paidAmount: Number(paidResult.sum || 0),
     };
+  }
+
+  // Method for marking vendor commissions as paid (for both admins)
+  async markVendorCommissionAsPaid(transactionIds: number[], user: any): Promise<{ affected: number }> {
+    if (!transactionIds || transactionIds.length === 0) {
+      return { affected: 0 };
+    }
+
+    const now = new Date();
+    const transactions = await this.transactionsRepository.find({
+      where: { id: transactionIds as any, status: TransactionStatus.COMPLETADO },
+    });
+
+    if (!transactions.length) {
+      return { affected: 0 };
+    }
+
+    transactions.forEach((tx) => {
+      tx.isCommissionPaidToVendor = true;
+      tx.commissionPaidAt = now;
+    });
+
+    const result = await this.transactionsRepository.save(transactions);
+    return { affected: result.length };
   }
 }
 

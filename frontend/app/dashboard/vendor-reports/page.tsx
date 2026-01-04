@@ -295,7 +295,7 @@ export default function VendorReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl shadow-sm border border-emerald-200 p-5">
                     <h4 className="text-sm font-semibold text-emerald-800 mb-1">Ganancia Total Vendedor</h4>
-                    <p className="text-xs text-emerald-700 mb-3">2% de las transacciones COMPLETADAS</p>
+                    <p className="text-xs text-emerald-700 mb-3">{user?.commission || 2}% de las transacciones COMPLETADAS</p>
                     <p className="text-2xl font-bold text-emerald-900">
                         ${reports.vendorEarningsTotal.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>

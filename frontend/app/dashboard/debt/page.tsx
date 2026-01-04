@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { transactionsService } from '@/services/transactions.service';
 import { Transaction } from '@/types/transaction';
@@ -13,7 +14,10 @@ import TransactionList from '@/components/TransactionList';
 type PeriodType = 'today' | 'last15days' | 'thisMonth' | 'custom' | 'all';
 
 export default function DebtPage() {
+    const router = useRouter();
     const { user } = useAuth();
+
+    // 1. TODOS LOS ESTADOS (useState)
     const [totalDebt, setTotalDebt] = useState<number>(0);
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -40,10 +44,12 @@ export default function DebtPage() {
         message: '',
         variant: 'info'
     });
-    const [confirmState, setConfirmState] = useState<{ isOpen: boolean; message: string; onConfirm: () => void }>({
+    const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void }>({
         isOpen: false,
+        title: '',
         message: '',
-        onConfirm: () => { }
+        onConfirm: () => { },
+        onCancel: () => { }
     });
     const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -52,7 +58,11 @@ export default function DebtPage() {
     const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string>('');
     const [isUnmarking, setIsUnmarking] = useState(false);
 
+    // 2. DEFINICIÓN DE FUNCIONES AUXILIARES (Deben estar antes de usarse en useEffect)
     const fetchStats = async () => {
+        // Evitar fetch si no hay usuario
+        if (!user) return;
+        
         try {
             setStatsLoading(true);
             const periodParam = selectedPeriod === 'all' ? undefined : selectedPeriod;
@@ -70,9 +80,12 @@ export default function DebtPage() {
     };
 
     const fetchTransactions = async () => {
+        // Evitar fetch si no hay usuario
+        if (!user) return;
+
         try {
             setLoading(true);
-            const query: any = {
+            const query: { page: number; limit: number; isPaid: boolean; period?: string; startDate?: string; endDate?: string } = {
                 page,
                 limit: 10,
                 isPaid: activeTab === 'paid',
@@ -94,18 +107,48 @@ export default function DebtPage() {
         }
     };
 
+    // 3. TODOS LOS USEEFFECT (Deben estar antes de cualquier return)
+    
+    // Auth Guard
     useEffect(() => {
-        if (selectedPeriod !== 'custom') {
+        if (user !== undefined) { 
+            console.log('Debug debt page - user:', user);
+            if (user === null) {
+                router.push('/login');
+                return;
+            }
+            
+            const isVendor = user.role === 'vendedor';
+            const isAdminColombia = user.adminId === 1 || user.adminId === undefined || user.adminId === null;
+            
+            console.log('Debug debt page - isVendor:', isVendor, 'isAdminColombia:', isAdminColombia, 'adminId:', user.adminId);
+            
+            if (!isVendor || !isAdminColombia) {
+                console.log('Debug: User does not have access, redirecting to dashboard');
+                // Usar un timeout pequeño para evitar conflictos de estado
+                const timer = setTimeout(() => {
+                    router.push('/dashboard');
+                }, 100);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [user, router]);
+
+    // Fetch Stats Effect
+    useEffect(() => {
+        if (user && selectedPeriod !== 'custom') {
             fetchStats();
         }
-    }, [selectedPeriod, startDate, endDate]);
+    }, [selectedPeriod, startDate, endDate, user]); // Agregado user a dependencias
 
+    // Fetch Transactions Effect
     useEffect(() => {
-        if (selectedPeriod !== 'custom' || (startDate && endDate)) {
+        if (user && (selectedPeriod !== 'custom' || (startDate && endDate))) {
             fetchTransactions();
         }
-    }, [selectedPeriod, startDate, endDate, activeTab, page]);
+    }, [selectedPeriod, startDate, endDate, activeTab, page, user]); // Agregado user a dependencias
 
+    // 4. HANDLERS Y LÓGICA DE EVENTOS
     const handleCustomDateSearch = () => {
         if (startDate && endDate) {
             fetchStats();
@@ -187,6 +230,7 @@ export default function DebtPage() {
     const handleUnmarkPaid = (transactionId: number) => {
         setConfirmState({
             isOpen: true,
+            title: 'Desmarcar como pagado',
             message: '¿Estás seguro de que deseas desmarcar esta transacción como pagada? Se perderá el registro del pago.',
             onConfirm: async () => {
                 try {
@@ -197,7 +241,7 @@ export default function DebtPage() {
                         message: 'Transacción desmarcada exitosamente',
                         variant: 'success'
                     });
-                    setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
+                    setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
                     fetchTransactions();
                 } catch (error) {
                     setAlertState({
@@ -205,7 +249,7 @@ export default function DebtPage() {
                         message: 'Error desmarcando la transacción',
                         variant: 'error'
                     });
-                    setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
+                    setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
                 } finally {
                     setIsUnmarking(false);
                 }
@@ -259,6 +303,7 @@ export default function DebtPage() {
 
         setConfirmState({
             isOpen: true,
+            title: 'Confirmar marcado como pagado',
             message: `¿Estás seguro de marcar ${pendingTransactionIds.length} transacción(es) como pagada(s)? Esta acción no se puede deshacer.`,
             onConfirm: async () => {
                 try {
@@ -277,14 +322,14 @@ export default function DebtPage() {
                             variant: 'success'
                         });
                     }
-                    setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
+                    setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
                     setSelectedTransactions([]);
                     setPendingTransactionIds([]);
                     setPaymentMethod('');
                     fetchStats();
                     fetchTransactions();
                 } catch (error) {
-                    setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
+                    setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
                     setAlertState({
                         isOpen: true,
                         message: 'Error al marcar transacciones como pagadas',
@@ -319,17 +364,31 @@ export default function DebtPage() {
         setIsPaymentMethodModalOpen(true);
     };
 
-    if (user?.role !== 'vendedor') {
-        return (
-            <div className="p-4 sm:p-8">
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-                    <h2 className="text-xl font-bold text-red-800 mb-2">Acceso Denegado</h2>
-                    <p className="text-red-600">Esta sección solo está disponible para vendedores.</p>
-                </div>
-            </div>
-        );
+    // 5. EARLY RETURNS (VALIDACIONES FINALES ANTES DEL RENDER)
+    // Aquí es donde deben ir los bloqueos de renderizado, DESPUÉS de todos los hooks.
+
+    // Si el usuario aún no está cargado, mostrar página vacía (no renderear nada)
+    if (user === undefined) {
+        return null;
     }
 
+    // Si el usuario no es válido (la redirección ocurre vía useEffect, pero evitamos render)
+    if (user === null || user.role !== 'vendedor' || (user.adminId !== 1 && user.adminId !== undefined && user.adminId !== null)) {
+         // Si es un usuario logueado pero sin rol, mostramos la UI de acceso denegado
+        if (user && user.role !== 'vendedor') {
+            return (
+                <div className="p-4 sm:p-8">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                        <h2 className="text-xl font-bold text-red-800 mb-2">Acceso Denegado</h2>
+                        <p className="text-red-600">Esta sección solo está disponible para vendedores.</p>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    }
+
+    // 6. RENDERIZADO PRINCIPAL
     return (
         <div className="p-4 sm:p-8 space-y-6">
             {/* Header */}
@@ -608,147 +667,17 @@ export default function DebtPage() {
                         />
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                    <div className="flex justify-end gap-3 pt-4">
                         <button
                             onClick={() => setIsRangeModalOpen(false)}
-                            className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleConfirmMarkByDateRange}
                             disabled={!rangeStartDate || !rangeEndDate}
-                            className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
-                        >
-                            Marcar como pagadas
-                        </button>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Alert Dialog */}
-            <Alert
-                isOpen={alertState.isOpen}
-                message={alertState.message}
-                variant={alertState.variant}
-                onClose={() => setAlertState({ ...alertState, isOpen: false })}
-            />
-
-            {/* Payment Method Modal */}
-            <Modal
-                isOpen={isPaymentMethodModalOpen}
-                onClose={() => {
-                    setIsPaymentMethodModalOpen(false);
-                    setPaymentMethod('');
-                    setPaymentProof(null);
-                    setPaymentProofPreview('');
-                }}
-                title="Seleccionar método de pago"
-                size="md"
-            >
-                <div className="space-y-4">
-                    <p className="text-sm text-gray-600">
-                        Selecciona cómo realizaste el pago de {isRangePayment ? 'las transacciones' : 'la(s) transacción(es)'}:
-                    </p>
-
-                    <div className="space-y-2">
-                        <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                                type="radio"
-                                name="paymentMethod"
-                                value="efectivo"
-                                checked={paymentMethod === 'efectivo'}
-                                onChange={(e) => setPaymentMethod(e.target.value as any)}
-                                className="mr-3 w-4 h-4 text-blue-600"
-                            />
-                            <div>
-                                <p className="font-medium text-gray-900">Efectivo</p>
-                                <p className="text-xs text-gray-500">Pago realizado en efectivo</p>
-                            </div>
-                        </label>
-
-                        <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                                type="radio"
-                                name="paymentMethod"
-                                value="consignacion_nequi"
-                                checked={paymentMethod === 'consignacion_nequi'}
-                                onChange={(e) => setPaymentMethod(e.target.value as any)}
-                                className="mr-3 w-4 h-4 text-blue-600"
-                            />
-                            <div>
-                                <p className="font-medium text-gray-900">Consignación Nequi</p>
-                                <p className="text-xs text-gray-500">Pago realizado por Nequi</p>
-                            </div>
-                        </label>
-
-                        <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                                type="radio"
-                                name="paymentMethod"
-                                value="consignacion_bancolombia"
-                                checked={paymentMethod === 'consignacion_bancolombia'}
-                                onChange={(e) => setPaymentMethod(e.target.value as any)}
-                                className="mr-3 w-4 h-4 text-blue-600"
-                            />
-                            <div>
-                                <p className="font-medium text-gray-900">Consignación Bancolombia</p>
-                                <p className="text-xs text-gray-500">Pago realizado por Bancolombia</p>
-                            </div>
-                        </label>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Comprobante de Pago (Opcional)
-                        </label>
-                        <input
-                            type="file"
-                            accept="image/*,application/pdf"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    setPaymentProof(file);
-                                    if (file.type.startsWith('image/')) {
-                                        setPaymentProofPreview(URL.createObjectURL(file));
-                                    } else {
-                                        setPaymentProofPreview('');
-                                    }
-                                }
-                            }}
-                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                        />
-                        {paymentProofPreview && (
-                            <div className="mt-3">
-                                <img src={paymentProofPreview} alt="Preview" className="max-h-48 rounded-lg border border-gray-200" />
-                            </div>
-                        )}
-                        {!paymentProofPreview && paymentProof && (
-                            <p className="mt-2 text-sm text-blue-600 font-medium">
-                                Archivo seleccionado: {paymentProof.name}
-                            </p>
-                        )}
-                        <p className="mt-1 text-xs text-gray-500">
-                            Puedes subir una imagen (JPG, PNG) o un PDF del comprobante de pago
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                        <button
-                            onClick={() => {
-                                setIsPaymentMethodModalOpen(false);
-                                setPaymentMethod('');
-                                setPaymentProof(null);
-                                setPaymentProofPreview('');
-                            }}
-                            className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleConfirmPaymentMethod}
-                            disabled={!paymentMethod}
-                            className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
                             Continuar
                         </button>
@@ -756,101 +685,206 @@ export default function DebtPage() {
                 </div>
             </Modal>
 
-            {/* Confirm Dialog */}
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title="Confirmar acción"
-                message={confirmState.message}
-                confirmText="Sí, marcar como pagadas"
-                cancelText="Cancelar"
-                variant="warning"
-                onConfirm={confirmState.onConfirm}
-                onCancel={() => setConfirmState({ isOpen: false, message: '', onConfirm: () => { } })}
-            />
-
-            {/* Modal de edición de pago */}
+            {/* Payment Method Modal */}
             <Modal
-                isOpen={isEditPaymentModalOpen}
-                onClose={() => {
-                    setIsEditPaymentModalOpen(false);
-                    setEditingTransaction(null);
-                    setEditPaymentMethod('');
-                    setEditPaymentProof(null);
-                    setEditPaymentProofPreview('');
-                }}
-                title="Editar Pago"
+                isOpen={isPaymentMethodModalOpen}
+                onClose={() => setIsPaymentMethodModalOpen(false)}
+                title="Confirmar Pago"
+                size="md"
             >
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Método de pago
+                            Método de Pago *
                         </label>
-                        <div className="space-y-2">
-                            {['efectivo', 'consignacion_nequi', 'consignacion_bancolombia'].map((method) => (
-                                <label key={method} className="flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="editPaymentMethod"
-                                        value={method}
-                                        checked={editPaymentMethod === method}
-                                        onChange={(e) => setEditPaymentMethod(e.target.value as any)}
-                                        className="mr-3"
-                                    />
-                                    <span className="text-sm text-gray-700">
-                                        {method === 'efectivo'
-                                            ? 'Efectivo'
-                                            : method === 'consignacion_nequi'
-                                            ? 'Nequi'
-                                            : 'Bancolombia'}
-                                    </span>
-                                </label>
-                            ))}
-                        </div>
+                        <select
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value as any)}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none bg-white"
+                        >
+                            <option value="">Selecciona un método</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="consignacion_nequi">Consignación Nequi</option>
+                            <option value="consignacion_bancolombia">Consignación Bancolombia</option>
+                        </select>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Comprobante de Pago (Opcional)
+                            Comprobante (Opcional)
                         </label>
-                        <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={handleEditPaymentProofChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        {editPaymentProofPreview && (
-                            <div className="mt-2">
-                                <img
-                                    src={editPaymentProofPreview}
-                                    alt="Preview"
-                                    className="max-h-40 rounded border border-gray-200"
-                                />
-                            </div>
-                        )}
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setPaymentProof(file);
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            setPaymentProofPreview(reader.result as string);
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                                className="hidden"
+                                id="payment-proof"
+                            />
+                            <label htmlFor="payment-proof" className="cursor-pointer block">
+                                {paymentProofPreview ? (
+                                    <div className="relative w-full h-48">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={paymentProofPreview}
+                                            alt="Preview"
+                                            className="w-full h-full object-contain rounded-lg"
+                                        />
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setPaymentProof(null);
+                                                setPaymentProofPreview('');
+                                            }}
+                                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <span className="text-sm text-gray-500">Clic para subir imagen</span>
+                                    </div>
+                                )}
+                            </label>
+                        </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex justify-end gap-3 pt-4">
                         <button
-                            onClick={() => {
-                                setIsEditPaymentModalOpen(false);
-                                setEditingTransaction(null);
-                                setEditPaymentMethod('');
-                                setEditPaymentProof(null);
-                                setEditPaymentProofPreview('');
-                            }}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                            onClick={() => setIsPaymentMethodModalOpen(false)}
+                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleConfirmPaymentMethod}
+                            disabled={!paymentMethod}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Edit Payment Modal */}
+            <Modal
+                isOpen={isEditPaymentModalOpen}
+                onClose={() => setIsEditPaymentModalOpen(false)}
+                title="Editar Pago"
+                size="md"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Método de Pago
+                        </label>
+                        <select
+                            value={editPaymentMethod}
+                            onChange={(e) => setEditPaymentMethod(e.target.value as any)}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none bg-white"
+                        >
+                            <option value="">Selecciona un método</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="consignacion_nequi">Consignación Nequi</option>
+                            <option value="consignacion_bancolombia">Consignación Bancolombia</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Nuevo Comprobante
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleEditPaymentProofChange}
+                                className="hidden"
+                                id="edit-payment-proof"
+                            />
+                            <label htmlFor="edit-payment-proof" className="cursor-pointer block">
+                                {editPaymentProofPreview ? (
+                                    <div className="relative w-full h-48">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={editPaymentProofPreview}
+                                            alt="Preview"
+                                            className="w-full h-full object-contain rounded-lg"
+                                        />
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setEditPaymentProof(null);
+                                                setEditPaymentProofPreview('');
+                                            }}
+                                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <span className="text-sm text-gray-500">Clic para cambiar imagen</span>
+                                    </div>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button
+                            onClick={() => setIsEditPaymentModalOpen(false)}
+                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleConfirmEditPayment}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                         >
-                            Guardar
+                            Guardar Cambios
                         </button>
                     </div>
                 </div>
             </Modal>
+
+            {/* Global Alerts */}
+            <Alert
+                isOpen={alertState.isOpen}
+                message={alertState.message}
+                variant={alertState.variant}
+                onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } })}
+            />
         </div>
     );
 }

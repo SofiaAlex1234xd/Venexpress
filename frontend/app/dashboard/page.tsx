@@ -97,11 +97,12 @@ export default function DashboardPage() {
                 const today = getLocalDateString();
                 const transactions = await transactionsService.getTransactions(100, 0, today, today);
 
-                // Calcular ganancias de hoy (2% de transacciones completadas)
+                // Calcular ganancias de hoy con comisión dinámica
                 const completedToday = transactions.filter(t => t.status === 'completado');
+                const commissionRate = (user?.commission || 2) / 100;
                 const todayEarningsCalc = completedToday.reduce((sum, t) => {
                     const copValue = parseFloat(t.amountCOP?.toString() || '0');
-                    return sum + (copValue * 0.02); // 2% de comisión
+                    return sum + (copValue * commissionRate);
                 }, 0);
 
                 const totalStats = {
