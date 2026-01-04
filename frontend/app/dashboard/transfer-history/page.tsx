@@ -31,6 +31,7 @@ export default function TransferHistoryPage() {
         variant: 'info'
     });
     const [venezuelaProof, setVenezuelaProof] = useState<string | null>(null);
+    const [vendorPaymentProof, setVendorPaymentProof] = useState<string | null>(null);
     const [loadingProof, setLoadingProof] = useState(false);
     const itemsPerPage = 4;
 
@@ -70,14 +71,18 @@ export default function TransferHistoryPage() {
     const handleViewDetails = async (transaction: Transaction) => {
         setSelectedTransaction(transaction);
         setVenezuelaProof(null);
+        setVendorPaymentProof(null);
         setIsDetailModalOpen(true);
 
-        if (transaction.comprobanteVenezuela) {
+        if (transaction.comprobanteVenezuela || transaction.vendorPaymentProof) {
             try {
                 setLoadingProof(true);
                 const proofs = await transactionsService.getTransactionProofs(transaction.id);
                 if (proofs.comprobanteVenezuela) {
                     setVenezuelaProof(proofs.comprobanteVenezuela);
+                }
+                if (proofs.vendorPaymentProof) {
+                    setVendorPaymentProof(proofs.vendorPaymentProof);
                 }
             } catch (error) {
                 console.error('Error loading proof:', error);
@@ -664,48 +669,96 @@ export default function TransferHistoryPage() {
                                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600 mb-3" />
                                 <p className="text-sm text-gray-500 font-medium">Cargando comprobante...</p>
                             </div>
-                        ) : venezuelaProof && (
-                            <div className="space-y-3">
-                                <h4 className="font-semibold text-gray-900">Comprobante Actual</h4>
-                                <div className="p-2 border border-blue-100 rounded-xl bg-blue-50">
-                                    {venezuelaProof.split('?')[0].endsWith('.pdf') ? (
-                                        <div className="flex items-center justify-between p-4">
-                                            <div className="flex items-center gap-3">
-                                                <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM6 4v12h8V8h-3a1 1 0 01-1-1V4H6z" clipRule="evenodd" />
-                                                </svg>
-                                                <span className="text-sm font-medium text-gray-700">Comprobante PDF</span>
-                                            </div>
-                                            <a
-                                                href={venezuelaProof}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-blue-600 hover:bg-gray-50 shadow-sm transition-all"
-                                            >
-                                                Ver PDF
-                                            </a>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="relative group flex justify-center">
-                                                <img
-                                                    src={venezuelaProof}
-                                                    alt="Comprobante"
-                                                    className="max-h-[400px] w-auto max-w-full object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-95 transition-all"
-                                                    onClick={() => window.open(venezuelaProof, '_blank')}
-                                                />
-                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity rounded-lg pointer-events-none">
-                                                    <span className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full text-xs font-bold text-gray-800 shadow-xl">
-                                                        Click para ampliar
-                                                    </span>
+                        ) : (
+                            <div className="space-y-4">
+                                {vendorPaymentProof && (
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-gray-900">Comprobante del Vendedor</h4>
+                                        <div className="p-2 border border-green-100 rounded-xl bg-green-50">
+                                            {vendorPaymentProof.split('?')[0].endsWith('.pdf') ? (
+                                                <div className="flex items-center justify-between p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM6 4v12h8V8h-3a1 1 0 01-1-1V4H6z" clipRule="evenodd" />
+                                                        </svg>
+                                                        <span className="text-sm font-medium text-gray-700">Comprobante PDF</span>
+                                                    </div>
+                                                    <a
+                                                        href={vendorPaymentProof}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-green-600 hover:bg-gray-50 shadow-sm transition-all"
+                                                    >
+                                                        Ver PDF
+                                                    </a>
                                                 </div>
-                                            </div>
-                                            <p className="text-xs text-blue-700 mt-2 text-center italic">
-                                                Clic en la imagen para ver en tamaño completo
-                                            </p>
-                                        </>
-                                    )}
-                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="relative group flex justify-center">
+                                                        <img
+                                                            src={vendorPaymentProof}
+                                                            alt="Comprobante del Vendedor"
+                                                            className="max-h-[400px] w-auto max-w-full object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-95 transition-all"
+                                                            onClick={() => window.open(vendorPaymentProof, '_blank')}
+                                                        />
+                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity rounded-lg pointer-events-none">
+                                                            <span className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full text-xs font-bold text-gray-800 shadow-xl">
+                                                                Click para ampliar
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-green-700 mt-2 text-center italic">
+                                                        Clic en la imagen para ver en tamaño completo
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                {venezuelaProof && (
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-gray-900">Comprobante de Venezuela</h4>
+                                        <div className="p-2 border border-blue-100 rounded-xl bg-blue-50">
+                                            {venezuelaProof.split('?')[0].endsWith('.pdf') ? (
+                                                <div className="flex items-center justify-between p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM6 4v12h8V8h-3a1 1 0 01-1-1V4H6z" clipRule="evenodd" />
+                                                        </svg>
+                                                        <span className="text-sm font-medium text-gray-700">Comprobante PDF</span>
+                                                    </div>
+                                                    <a
+                                                        href={venezuelaProof}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-blue-600 hover:bg-gray-50 shadow-sm transition-all"
+                                                    >
+                                                        Ver PDF
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="relative group flex justify-center">
+                                                        <img
+                                                            src={venezuelaProof}
+                                                            alt="Comprobante de Venezuela"
+                                                            className="max-h-[400px] w-auto max-w-full object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-95 transition-all"
+                                                            onClick={() => window.open(venezuelaProof, '_blank')}
+                                                        />
+                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity rounded-lg pointer-events-none">
+                                                            <span className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full text-xs font-bold text-gray-800 shadow-xl">
+                                                                Click para ampliar
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-blue-700 mt-2 text-center italic">
+                                                        Clic en la imagen para ver en tamaño completo
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

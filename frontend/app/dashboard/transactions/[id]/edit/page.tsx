@@ -11,10 +11,14 @@ import { transactionsService } from '@/services/transactions.service';
 import { beneficiariesService } from '@/services/beneficiaries.service';
 import { Transaction } from '@/types/transaction';
 import { Beneficiary } from '@/types/beneficiary';
+import { useAuth } from '@/hooks/useAuth';
+import Modal from '@/components/ui/Modal';
 
 export default function EditTransactionPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
+    const { user } = useAuth();
     const { id } = use(params);
+    const isVendorVenezuela = user?.role === 'vendedor' && user?.adminId === 2;
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
     const [loading, setLoading] = useState(true);
@@ -30,6 +34,12 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
         message: '',
         onConfirm: () => { }
     });
+
+    // Estados para editar comprobante
+    const [isEditProofModalOpen, setIsEditProofModalOpen] = useState(false);
+    const [newProof, setNewProof] = useState<File | null>(null);
+    const [newProofPreview, setNewProofPreview] = useState<string>('');
+    const [updatingProof, setUpdatingProof] = useState(false);
 
     const [formData, setFormData] = useState({
         amountCOP: '',
@@ -391,6 +401,29 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
                         />
                     </div>
 
+                    {/* Sección para editar comprobante (solo para vendedores de Venezuela) */}
+                    {isVendorVenezuela && transaction.vendorPaymentProof && (
+                        <div className="border-2 border-green-100 rounded-xl p-4 bg-green-50">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Comprobante de Pago</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setNewProof(null);
+                                        setNewProofPreview('');
+                                        setIsEditProofModalOpen(true);
+                                    }}
+                                    className="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
+                                >
+                                    Editar Comprobante
+                                </button>
+                            </div>
+                            <p className="text-xs text-green-700">
+                                Comprobante adjuntado al crear la transacción. Puedes editarlo dentro de los primeros 5 minutos.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
                         <Button
                             type="button"
@@ -433,6 +466,93 @@ export default function EditTransactionPage({ params }: { params: Promise<{ id: 
                     setSaving(false);
                 }}
             />
+
+            {/* Modal para editar comprobante */}
+            <Modal
+                isOpen={isEditProofModalOpen}
+                onClose={() => setIsEditProofModalOpen(false)}
+                title="Editar Comprobante de Pago"
+                size="md"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                        Selecciona un nuevo archivo para reemplazar el comprobante de pago de la transacción #{transaction?.id}.
+                    </p>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Nuevo Comprobante *
+                        </label>
+                        <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    setNewProof(file);
+                                    if (file.type.startsWith('image/')) {
+                                        setNewProofPreview(URL.createObjectURL(file));
+                                    } else {
+                                        setNewProofPreview('');
+                                    }
+                                }
+                            }}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                        />
+                        {newProofPreview && (
+                            <div className="mt-3">
+                                <img src={newProofPreview} alt="Preview" className="max-h-48 rounded-lg border border-gray-200" />
+                            </div>
+                        )}
+                        {!newProofPreview && newProof && (
+                            <p className="mt-2 text-sm text-blue-600 font-medium">Archivo seleccionado: {newProof.name}</p>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsEditProofModalOpen(false)}
+                            className="flex-1"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                if (!newProof || !transaction) return;
+                                setUpdatingProof(true);
+                                try {
+                                    await transactionsService.updateVendorPaymentProof(transaction.id, newProof);
+                                    setAlertState({
+                                        isOpen: true,
+                                        message: 'Comprobante actualizado exitosamente',
+                                        variant: 'success'
+                                    });
+                                    setIsEditProofModalOpen(false);
+                                    setNewProof(null);
+                                    setNewProofPreview('');
+                                    // Recargar los datos de la transacción
+                                    const transactionData = await transactionsService.getTransaction(transaction.id);
+                                    setTransaction(transactionData);
+                                } catch (error: any) {
+                                    setAlertState({
+                                        isOpen: true,
+                                        message: error.response?.data?.message || 'Error al actualizar el comprobante',
+                                        variant: 'error'
+                                    });
+                                } finally {
+                                    setUpdatingProof(false);
+                                }
+                            }}
+                            isLoading={updatingProof}
+                            disabled={!newProof}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        >
+                            Actualizar
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div >
     );
 }

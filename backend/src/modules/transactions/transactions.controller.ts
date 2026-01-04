@@ -216,6 +216,39 @@ export class TransactionsController {
     return this.transactionsService.updateTransactionPayment(transactionId, user, paymentMethod, proofPath);
   }
 
+  /**
+   * Actualiza el comprobante de pago inicial (vendorPaymentProof) de una transacción
+   * Solo para vendedores, dentro de 5 minutos de la creación
+   */
+  @Patch(':id/vendor-payment-proof')
+  @Roles(UserRole.VENDEDOR)
+  @UseInterceptors(
+    FileInterceptor('proof', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+      fileFilter: (req, file, cb) => {
+        if (file && !file.mimetype.match(/\/(jpg|jpeg|png|pdf)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes y PDFs'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async updateVendorPaymentProof(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Es necesario adjuntar un comprobante');
+    }
+
+    const proofPath = await this.storageService.uploadFile(file, id, 'cliente');
+    return this.transactionsService.updateVendorPaymentProof(+id, proofPath, user);
+  }
+
   // Admin Colombia endpoints
   @Get('admin-colombia/pending')
   @Roles(UserRole.ADMIN_COLOMBIA)
@@ -569,7 +602,7 @@ export class TransactionsController {
     // Primero obtener la transacción para verificar permisos
     const transaction = await this.transactionsService.findOne(+id, user);
 
-    const result: { comprobanteCliente?: string; comprobanteVenezuela?: string } = {};
+    const result: { comprobanteCliente?: string; comprobanteVenezuela?: string; vendorPaymentProof?: string } = {};
 
     // Generar signed URLs para cada comprobante que exista
     if (transaction.comprobanteCliente) {
@@ -586,6 +619,14 @@ export class TransactionsController {
         result.comprobanteVenezuela = await this.storageService.getSignedUrl(transaction.comprobanteVenezuela);
       } else {
         result.comprobanteVenezuela = transaction.comprobanteVenezuela;
+      }
+    }
+
+    if (transaction.vendorPaymentProof) {
+      if (!transaction.vendorPaymentProof.startsWith('/uploads/')) {
+        result.vendorPaymentProof = await this.storageService.getSignedUrl(transaction.vendorPaymentProof);
+      } else {
+        result.vendorPaymentProof = transaction.vendorPaymentProof;
       }
     }
 

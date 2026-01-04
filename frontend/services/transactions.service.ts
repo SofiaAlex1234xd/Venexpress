@@ -270,8 +270,24 @@ export const transactionsService = {
     /**
      * Obtiene URLs firmadas para los comprobantes de una transacción
      */
-    async getTransactionProofs(id: number): Promise<{ comprobanteCliente?: string; comprobanteVenezuela?: string }> {
-        const response = await api.get<{ comprobanteCliente?: string; comprobanteVenezuela?: string }>(`/transactions/${id}/proofs`);
+    async getTransactionProofs(id: number): Promise<{ comprobanteCliente?: string; comprobanteVenezuela?: string; vendorPaymentProof?: string }> {
+        const response = await api.get<{ comprobanteCliente?: string; comprobanteVenezuela?: string; vendorPaymentProof?: string }>(`/transactions/${id}/proofs`);
+        return response.data;
+    },
+
+    /**
+     * Actualiza el comprobante de pago inicial (vendorPaymentProof) de una transacción
+     * Solo para vendedores, dentro de 5 minutos de la creación
+     */
+    async updateVendorPaymentProof(id: number, proof: File): Promise<Transaction> {
+        const formData = new FormData();
+        formData.append('proof', proof);
+
+        const response = await api.patch<Transaction>(`/transactions/${id}/vendor-payment-proof`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data;
     },
 

@@ -993,6 +993,50 @@ export class TransactionsService {
     return updated;
   }
 
+  /**
+   * Actualiza el comprobante de pago inicial del vendedor (vendorPaymentProof)
+   * Solo se puede hacer dentro de 5 minutos de la creación y si el estado es PENDIENTE
+   */
+  async updateVendorPaymentProof(id: number, proofUrl: string, user: any): Promise<Transaction> {
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id },
+      relations: ['createdBy'],
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transacción con ID ${id} no encontrada`);
+    }
+
+    // Verificar que el usuario sea el creador de la transacción
+    if (transaction.createdBy.id !== user.id) {
+      throw new ForbiddenException('Solo el creador de la transacción puede actualizar el comprobante');
+    }
+
+    // Verificar que el estado sea PENDIENTE
+    if (transaction.status !== TransactionStatus.PENDIENTE) {
+      throw new BadRequestException('Solo se puede actualizar el comprobante en transacciones pendientes');
+    }
+
+    // Verificar que esté dentro del período de 5 minutos
+    if (!this.canEdit(transaction)) {
+      throw new BadRequestException('El período de edición ha expirado (5 minutos desde la creación)');
+    }
+
+    const oldProof = transaction.vendorPaymentProof;
+    transaction.vendorPaymentProof = proofUrl;
+    transaction.lastEditedAt = new Date(); // Resetear el período de 5 minutos
+
+    const updated = await this.transactionsRepository.save(transaction);
+
+    await this.createHistoryEntry(
+      id,
+      transaction.status,
+      `Comprobante de pago inicial actualizado por vendedor${oldProof ? ' (reemplazó anterior)' : ''}`,
+      user.id,
+    );
+
+    return updated;
+  }
 
   async rejectTransfer(id: number, reason: string, voucherUrl: string | null, user: any): Promise<Transaction> {
     const transaction = await this.transactionsRepository.findOne({
