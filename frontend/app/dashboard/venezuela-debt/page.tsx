@@ -536,57 +536,92 @@ export default function VenezuelaDebtPage() {
           </Card>
 
           {/* Historial de pagos */}
-          {debtSummary.payments.length > 0 && (
-            <Card>
-              <h3 className="text-base font-semibold text-gray-900 mb-3">
-                Historial de Pagos
-              </h3>
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  Historial de Pagos
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Registro de todos los pagos realizados en el período seleccionado
+                </p>
+              </div>
+              {debtSummary.payments.length > 0 && (
+                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                  {debtSummary.payments.length} pago{debtSummary.payments.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            
+            {debtSummary.payments.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-gray-500 text-sm font-medium">No hay pagos registrados en este período</p>
+                <p className="text-gray-400 text-xs mt-1">Los pagos realizados aparecerán aquí</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto -mx-4 sm:mx-0">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fecha Pago
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Monto
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                        Notas
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notas / Referencia
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Registrado por
                       </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Comprobante
                       </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {debtSummary.payments.map((payment) => (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-900">
-                          {formatDate(payment.paymentDate)}
+                      <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatDate(payment.paymentDate)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(payment.createdAt).toLocaleString('es-CO', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-right text-green-600 font-semibold">
-                          {formatCOP(payment.amount)}
+                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                          <span className="text-green-600 font-bold text-base">
+                            {formatCOP(payment.amount)}
+                          </span>
                         </td>
-                        <td className="px-4 py-2 text-gray-600">
-                          {payment.notes || '-'}
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-gray-900 max-w-xs truncate" title={payment.notes || '-'}>
+                            {payment.notes || <span className="text-gray-400 italic">Sin notas</span>}
+                          </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-gray-600">
-                          {payment.createdBy}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-600">
+                            {payment.createdBy}
+                          </div>
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           {payment.proofUrl ? (
                             <a
                               href={payment.proofUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center justify-center gap-1"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium rounded-lg transition-colors"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -595,26 +630,41 @@ export default function VenezuelaDebtPage() {
                               Ver
                             </a>
                           ) : (
-                            <span className="text-gray-400 text-xs">-</span>
+                            <span className="text-gray-400 text-xs">Sin comprobante</span>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={() =>
                               handleDeletePayment(payment.id, payment.amount)
                             }
-                            className="text-red-600 hover:text-red-800 text-xs"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors"
+                            title="Eliminar pago"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                             Eliminar
                           </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-900">
+                        TOTAL PAGADO
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-green-600">
+                        {formatCOP(debtSummary.totalPaid)}
+                      </td>
+                      <td className="px-4 py-3"></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
-            </Card>
-          )}
+            )}
+          </Card>
         </>
       )}
 
