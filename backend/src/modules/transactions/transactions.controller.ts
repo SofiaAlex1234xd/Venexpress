@@ -177,7 +177,7 @@ export class TransactionsController {
   }
 
   @Post('unmark-as-paid/:transactionId')
-  @Roles(UserRole.VENDEDOR)
+  @Roles(UserRole.VENDEDOR, UserRole.ADMIN_COLOMBIA, UserRole.ADMIN_VENEZUELA)
   async unmarkAsPaid(
     @Param('transactionId') transactionId: number,
     @CurrentUser() user: any,
@@ -363,6 +363,15 @@ export class TransactionsController {
     @CurrentUser() user: any,
   ) {
     return this.transactionsService.verifyVendorPaymentProof(+id, user);
+  }
+
+  @Post(':id/verify-vendor-payment')
+  @Roles(UserRole.ADMIN_COLOMBIA, UserRole.ADMIN_VENEZUELA)
+  async verifyVendorPayment(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.verifyVendorPayment(+id, user);
   }
 
   @Post(':id/update-voucher')

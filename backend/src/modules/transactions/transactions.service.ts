@@ -403,6 +403,9 @@ export class TransactionsService {
       if (proofPath) {
         transaction.vendorPaymentProofUrl = proofPath;
       }
+      // Limpiar el flag de rechazo cuando el vendedor vuelve a marcar como pagado
+      transaction.paymentRejectedByAdmin = false;
+      transaction.paymentRejectedAt = null;
     });
 
     await this.transactionsRepository.save(transactions);
@@ -430,6 +433,9 @@ export class TransactionsService {
       isPaidByVendor: true,
       paidByVendorAt: new Date(),
       vendorPaymentMethod: normalizedPaymentMethod as any,
+      // Limpiar el flag de rechazo cuando el vendedor vuelve a marcar como pagado
+      paymentRejectedByAdmin: false,
+      paymentRejectedAt: null,
     };
 
     if (proofPath) {
@@ -450,15 +456,24 @@ export class TransactionsService {
   }
 
   async unmarkTransactionAsPaid(transactionId: number, user: User): Promise<Transaction> {
-    if (user.role !== 'vendedor') {
-      throw new ForbiddenException('Solo los vendedores pueden desmarcar transacciones');
+    const isVendor = user.role === 'vendedor';
+    const isAdmin = user.role === 'admin_colombia' || user.role === 'admin_venezuela';
+
+    if (!isVendor && !isAdmin) {
+      throw new ForbiddenException('No tienes permisos para desmarcar transacciones');
+    }
+
+    const whereCondition: any = { id: transactionId };
+    
+    // Si es vendedor, solo puede desmarcar sus propias transacciones
+    // Si es admin, puede desmarcar cualquier transacción
+    if (isVendor) {
+      whereCondition.createdBy = { id: user.id };
     }
 
     const transaction = await this.transactionsRepository.findOne({
-      where: {
-        id: transactionId,
-        createdBy: { id: user.id },
-      },
+      where: whereCondition,
+      relations: ['createdBy'],
     });
 
     if (!transaction) {
@@ -469,13 +484,39 @@ export class TransactionsService {
       throw new BadRequestException('Esta transacción no está marcada como pagada');
     }
 
+    if (isVendor && transaction.adminVerifiedPayment) {
+      throw new BadRequestException('No se puede desmarcar un pago que ya fue verificado por el administrador');
+    }
+
     // Revertir los campos de pago del vendedor
     transaction.isPaidByVendor = false;
     transaction.paidByVendorAt = null;
     transaction.vendorPaymentMethod = null;
     transaction.vendorPaymentProofUrl = null;
 
-    return this.transactionsRepository.save(transaction);
+    // Si es admin_colombia, marcar como rechazado por administrador
+    if (user.role === 'admin_colombia') {
+      transaction.paymentRejectedByAdmin = true;
+      transaction.paymentRejectedAt = new Date();
+    } else {
+      // Si es vendedor o admin_venezuela, limpiar el flag de rechazo
+      transaction.paymentRejectedByAdmin = false;
+      transaction.paymentRejectedAt = null;
+    }
+
+    const saved = await this.transactionsRepository.save(transaction);
+
+    // Crear entrada en el historial
+    await this.createHistoryEntry(
+      transactionId,
+      transaction.status,
+      user.role === 'admin_colombia' 
+        ? 'Pago rechazado por administrador. La transacción volvió a estar en pendiente de pago.'
+        : 'Pago desmarcado. La transacción volvió a estar en pendiente de pago.',
+      user.id,
+    );
+
+    return saved;
   }
 
   async updateTransactionPayment(
@@ -501,6 +542,10 @@ export class TransactionsService {
 
     if (!transaction.isPaidByVendor) {
       throw new BadRequestException('Esta transacción no está marcada como pagada');
+    }
+
+    if (transaction.adminVerifiedPayment) {
+      throw new BadRequestException('No se puede editar un pago que ya fue verificado por el administrador');
     }
 
     if (paymentMethod) {
@@ -1010,6 +1055,38 @@ export class TransactionsService {
     return updated;
   }
 
+  async verifyVendorPayment(id: number, user: any): Promise<Transaction> {
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transacción con ID ${id} no encontrada`);
+    }
+
+    if (!transaction.isPaidByVendor) {
+      throw new BadRequestException('Solo se pueden verificar transacciones marcadas como pagadas por el vendedor');
+    }
+
+    if (transaction.adminVerifiedPayment) {
+      throw new BadRequestException('Este pago ya fue verificado anteriormente');
+    }
+
+    transaction.adminVerifiedPayment = true;
+    transaction.adminVerifiedPaymentAt = new Date();
+
+    const updated = await this.transactionsRepository.save(transaction);
+
+    await this.createHistoryEntry(
+      id,
+      transaction.status,
+      'Pago verificado por administrador',
+      user.id,
+    );
+
+    return updated;
+  }
+
   async updateVoucher(id: number, voucherUrl: string, user: any): Promise<Transaction> {
     const transaction = await this.transactionsRepository.findOne({
       where: { id },
@@ -1107,6 +1184,12 @@ export class TransactionsService {
     if (voucherUrl) {
       transaction.comprobanteVenezuela = voucherUrl;
     }
+
+    // Desmarcar como pagado por el vendedor cuando se rechaza
+    transaction.isPaidByVendor = false;
+    transaction.paidByVendorAt = null;
+    transaction.vendorPaymentMethod = null;
+    transaction.vendorPaymentProofUrl = null;
 
     const updated = await this.transactionsRepository.save(transaction);
 

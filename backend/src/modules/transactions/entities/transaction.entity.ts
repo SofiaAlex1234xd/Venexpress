@@ -95,6 +95,12 @@ export class Transaction {
   @Column({ type: 'timestamptz', nullable: true, name: 'vendor_payment_proof_verified_at' })
   vendorPaymentProofVerifiedAt: Date; // Fecha en que se verificó el comprobante
 
+  @Column({ type: 'boolean', default: false, name: 'admin_verified_payment' })
+  adminVerifiedPayment: boolean; // Indica si el admin verificó el pago del vendedor (chulo)
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'admin_verified_payment_at' })
+  adminVerifiedPaymentAt: Date; // Fecha en que el admin verificó el pago
+
   @Column('text', { nullable: true })
   notes: string;
 
@@ -118,6 +124,12 @@ export class Transaction {
 
   @Column({ nullable: true, name: 'vendor_payment_proof_url' })
   vendorPaymentProofUrl: string; // URL del comprobante de pago del vendedor
+
+  @Column({ type: 'boolean', default: false, name: 'payment_rejected_by_admin' })
+  paymentRejectedByAdmin: boolean; // Indica si el pago fue rechazado por el administrador
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'payment_rejected_at' })
+  paymentRejectedAt: Date; // Fecha en que el administrador rechazó el pago
 
   // Comisión (2% de la transferencia) pagada por Admin Colombia al vendedor
   @Index()

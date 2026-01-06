@@ -301,6 +301,16 @@ export default function DebtPage() {
             return;
         }
 
+        // Validar que si es consignación Nequi o Bancolombia, debe haber comprobante
+        if ((paymentMethod === 'consignacion_nequi' || paymentMethod === 'consignacion_bancolombia') && !paymentProof) {
+            setAlertState({
+                isOpen: true,
+                message: 'Debes adjuntar el comprobante de pago para este método de pago',
+                variant: 'warning'
+            });
+            return;
+        }
+
         setIsPaymentMethodModalOpen(false);
 
         setConfirmState({
@@ -623,7 +633,6 @@ export default function DebtPage() {
                     showSelection={activeTab === 'unpaid'}
                     selectedTransactions={selectedTransactions}
                     onSelectTransaction={handleSelectTransaction}
-                    onSelectAll={handleSelectAll}
                     showPaymentActions={activeTab === 'paid'}
                     onUnmarkPaid={handleUnmarkPaid}
                     onEditPayment={handleEditPayment}
@@ -720,7 +729,7 @@ export default function DebtPage() {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Comprobante (Opcional)
+                            Comprobante {paymentMethod === 'consignacion_nequi' || paymentMethod === 'consignacion_bancolombia' ? '*' : '(Opcional)'}
                         </label>
                         <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors">
                             <input
@@ -774,6 +783,14 @@ export default function DebtPage() {
                         </div>
                     </div>
 
+                    {(paymentMethod === 'consignacion_nequi' || paymentMethod === 'consignacion_bancolombia') && !paymentProof && (
+                        <div className="p-3 bg-red-50 border-2 border-red-200 rounded-xl">
+                            <p className="text-sm text-red-800">
+                                <strong>Comprobante requerido:</strong> Debes adjuntar el comprobante de pago para este método de pago.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="flex justify-end gap-3 pt-4">
                         <button
                             onClick={() => setIsPaymentMethodModalOpen(false)}
@@ -783,7 +800,7 @@ export default function DebtPage() {
                         </button>
                         <button
                             onClick={handleConfirmPaymentMethod}
-                            disabled={!paymentMethod}
+                            disabled={!paymentMethod || ((paymentMethod === 'consignacion_nequi' || paymentMethod === 'consignacion_bancolombia') && !paymentProof)}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
                             Confirmar

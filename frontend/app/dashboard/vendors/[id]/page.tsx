@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { usersService, Vendor } from '@/services/users.service';
+import { transactionsService } from '@/services/transactions.service';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import TransactionList from '@/components/TransactionList';
 import { Transaction } from '@/types/transaction';
+import Alert from '@/components/ui/Alert';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function VendorDetailsPage() {
     const { id } = useParams();
@@ -23,6 +26,18 @@ export default function VendorDetailsPage() {
     const [page, setPage] = useState(1);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [pagination, setPagination] = useState({ page: 1, lastPage: 1, total: 0 });
+    const [alertState, setAlertState] = useState<{ isOpen: boolean; message: string; variant?: 'error' | 'success' | 'warning' | 'info' }>({
+        isOpen: false,
+        message: '',
+        variant: 'info'
+    });
+    const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        onCancel: () => { }
+    });
 
     useEffect(() => {
         if (authLoading) return;
@@ -95,6 +110,55 @@ export default function VendorDetailsPage() {
             currency: 'COP',
             minimumFractionDigits: 0,
         }).format(amount);
+    };
+
+    const handleUnmarkPaid = (transactionId: number) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Revertir pago',
+            message: '¿Estás seguro de que deseas revertir este pago? La transacción volverá a estar en pendiente de pago.',
+            onConfirm: async () => {
+                try {
+                    await transactionsService.unmarkAsPaid(transactionId);
+                    setAlertState({
+                        isOpen: true,
+                        message: 'Pago revertido exitosamente. La transacción volvió a estar en pendiente de pago.',
+                        variant: 'success'
+                    });
+                    setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
+                    loadTransactions();
+                    loadVendorDetails();
+                } catch (error: any) {
+                    setAlertState({
+                        isOpen: true,
+                        message: error.response?.data?.message || 'Error al revertir el pago',
+                        variant: 'error'
+                    });
+                    setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
+                }
+            },
+            onCancel: () => {
+                setConfirmState({ isOpen: false, title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
+            }
+        });
+    };
+
+    const handleVerifyPayment = async (transactionId: number) => {
+        try {
+            await transactionsService.verifyVendorPayment(transactionId);
+            setAlertState({
+                isOpen: true,
+                message: 'Pago verificado correctamente',
+                variant: 'success'
+            });
+            loadTransactions();
+        } catch (error: any) {
+            setAlertState({
+                isOpen: true,
+                message: error.response?.data?.message || 'Error al verificar el pago',
+                variant: 'error'
+            });
+        }
     };
 
     if (statsLoading && !vendor) {
@@ -322,8 +386,28 @@ export default function VendorDetailsPage() {
                     onPageChange={setPage}
                     showSelection={false}
                     showVendorPaymentMethod={activeTab === 'paid'}
+                    showUnmarkButton={activeTab === 'paid'}
+                    onUnmarkPaid={handleUnmarkPaid}
+                    showVerifyButton={activeTab === 'paid'}
+                    onVerifyPayment={handleVerifyPayment}
                 />
             </div>
+
+            {/* Alerts */}
+            <Alert
+                isOpen={alertState.isOpen}
+                message={alertState.message}
+                variant={alertState.variant}
+                onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                onConfirm={confirmState.onConfirm}
+                onCancel={confirmState.onCancel}
+            />
         </div>
     );
 }

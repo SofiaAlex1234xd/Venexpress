@@ -63,6 +63,10 @@ export interface Transaction {
     vendorPaymentProof?: string; // URL del comprobante de pago inicial del vendedor (para vendedores de Venezuela)
     vendorPaymentProofVerified?: boolean; // Indica si el comprobante del vendedor fue verificado por admin venezuela
     vendorPaymentProofVerifiedAt?: string; // Fecha en que se verificó el comprobante
+    adminVerifiedPayment?: boolean; // Indica si el admin verificó el pago del vendedor (chulo)
+    adminVerifiedPaymentAt?: string; // Fecha en que el admin verificó el pago
+    paymentRejectedByAdmin?: boolean; // Indica si el pago fue rechazado por el administrador
+    paymentRejectedAt?: string; // Fecha en que el administrador rechazó el pago
     isCommissionPaidToVendor?: boolean;
     commissionPaidAt?: string;
     hasCustomRate?: boolean; // Indica si el vendedor usó una tasa personalizada

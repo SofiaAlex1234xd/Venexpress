@@ -18,6 +18,9 @@ interface TransactionListProps {
     showPaymentActions?: boolean;
     onUnmarkPaid?: (transactionId: number) => void;
     onEditPayment?: (transaction: Transaction) => void;
+    showUnmarkButton?: boolean; // Nueva prop para mostrar botón de desmarcar en historial de pagos
+    showVerifyButton?: boolean; // Nueva prop para mostrar botón de verificar pago (Admin)
+    onVerifyPayment?: (transactionId: number) => void; // Handler para verificar pago
 }
 
 export default function TransactionList({
@@ -32,7 +35,10 @@ export default function TransactionList({
     showVendorPaymentMethod = false,
     showPaymentActions = false,
     onUnmarkPaid,
-    onEditPayment
+    onEditPayment,
+    showUnmarkButton = false,
+    showVerifyButton = false,
+    onVerifyPayment
 }: TransactionListProps) {
 
     const formatCurrency = (amount: number) => {
@@ -89,7 +95,7 @@ export default function TransactionList({
                 <table className="w-full">
                     <thead className="bg-gray-50">
                         <tr>
-                            {showSelection && (
+                            {showSelection && onSelectAll && (
                                 <th className="px-4 lg:px-6 py-3">
                                     <input
                                         type="checkbox"
@@ -132,11 +138,25 @@ export default function TransactionList({
                                     Acciones
                                 </th>
                             )}
+                            {showUnmarkButton && (
+                                <th className="px-4 lg:px-6 py-3 text-center text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                    Acción
+                                </th>
+                            )}
+                            {showVerifyButton && (
+                                <th className="px-4 lg:px-6 py-3 text-center text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                    Verificar
+                                </th>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {transactions.map((transaction) => (
-                            <tr key={transaction.id} className={`hover:bg-gray-50 transition-colors ${selectedTransactions.includes(transaction.id) ? 'bg-blue-50' : ''}`}>
+                        {transactions.map((transaction) => {
+                            // Si es vendedor y la transacción fue rechazada por admin o desmarcada como pagada, mostrar con color distinto
+                            const isRejectedByAdmin = transaction.paymentRejectedByAdmin === true;
+                            const isUnmarked = transaction.status === 'rechazado' && !transaction.isPaidByVendor && transaction.paidByVendorAt === null && !isRejectedByAdmin;
+                            return (
+                            <tr key={transaction.id} className={`transition-colors ${selectedTransactions.includes(transaction.id) ? 'bg-blue-50' : ''} ${isRejectedByAdmin ? 'bg-red-100 border-l-4 border-red-500 hover:bg-red-200' : isUnmarked ? 'bg-orange-50 border-l-4 border-orange-400 hover:bg-orange-100' : 'hover:bg-gray-50'}`}>
                                 {showSelection && (
                                     <td className="px-4 lg:px-6 py-4">
                                         <input
@@ -163,7 +183,19 @@ export default function TransactionList({
                                     {formatDate(transaction.createdAt)}
                                 </td>
                                 <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                                    <Badge status={transaction.status} />
+                                    <div className="flex items-center gap-2">
+                                        <Badge status={transaction.status} />
+                                        {isRejectedByAdmin && (
+                                            <span className="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-full shadow-sm" title="El administrador ha rechazado este pago">
+                                                ❌ Rechazado por Admin
+                                            </span>
+                                        )}
+                                        {isUnmarked && (
+                                            <span className="px-2 py-1 text-xs font-semibold bg-orange-200 text-orange-800 rounded-full" title="Esta transacción fue desmarcada como pagada">
+                                                ⚠️ Desmarcada
+                                            </span>
+                                        )}
+                                    </div>
                                 </td>
                                 {showVendorPaymentMethod && (
                                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
@@ -208,35 +240,82 @@ export default function TransactionList({
                                 )}
                                 {showPaymentActions && transaction.isPaidByVendor && (
                                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-center space-x-2">
-                                        <button
-                                            onClick={() => onEditPayment && onEditPayment(transaction)}
-                                            className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                            title="Editar pago"
-                                        >
-                                            <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </button>
+                                        {!transaction.adminVerifiedPayment ? (
+                                            <>
+                                                <button
+                                                    onClick={() => onEditPayment && onEditPayment(transaction)}
+                                                    className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                                    title="Editar pago"
+                                                >
+                                                    <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => onUnmarkPaid && onUnmarkPaid(transaction.id)}
+                                                    className="text-red-600 hover:text-red-800 text-xs font-medium"
+                                                    title="Desmarcar como pagado"
+                                                >
+                                                    <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center justify-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                                Bloqueado
+                                            </div>
+                                        )}
+                                    </td>
+                                )}
+                                {showUnmarkButton && transaction.isPaidByVendor && (
+                                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-center">
                                         <button
                                             onClick={() => onUnmarkPaid && onUnmarkPaid(transaction.id)}
-                                            className="text-red-600 hover:text-red-800 text-xs font-medium"
-                                            title="Desmarcar como pagado"
+                                            className="text-red-600 hover:text-red-800 text-xs font-medium p-2 hover:bg-red-50 rounded-full transition-colors"
+                                            title="Revertir pago (volver a pendiente)"
                                         >
-                                            <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                             </svg>
                                         </button>
                                     </td>
                                 )}
+                                {showVerifyButton && transaction.isPaidByVendor && (
+                                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-center">
+                                        {transaction.adminVerifiedPayment ? (
+                                            <div className="flex items-center justify-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Verificado
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => onVerifyPayment && onVerifyPayment(transaction.id)}
+                                                className="text-green-600 hover:text-green-800 text-xs font-medium p-2 hover:bg-green-50 rounded-full transition-colors"
+                                                title="Marcar pago como verificado"
+                                            >
+                                                <svg className="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </td>
+                                )}
                             </tr>
-                        ))}
+                        );
+                        })}
                     </tbody>
                 </table>
             </div>
 
             {/* Mobile list */}
             <div className="md:hidden p-4 space-y-3">
-                {showSelection && transactions.length > 0 && (
+                {showSelection && onSelectAll && transactions.length > 0 && (
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 mb-2">
                         <input
                             type="checkbox"
@@ -249,8 +328,12 @@ export default function TransactionList({
                         </label>
                     </div>
                 )}
-                {transactions.map(tx => (
-                    <div key={tx.id} className={`bg-white p-4 rounded-xl shadow-sm border ${selectedTransactions.includes(tx.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-100'}`}>
+                {transactions.map(tx => {
+                    // Si es vendedor y la transacción fue rechazada por admin o desmarcada como pagada, mostrar con color distinto
+                    const isRejectedByAdmin = tx.paymentRejectedByAdmin === true;
+                    const isUnmarked = tx.status === 'rechazado' && !tx.isPaidByVendor && tx.paidByVendorAt === null && !isRejectedByAdmin;
+                    return (
+                    <div key={tx.id} className={`p-4 rounded-xl shadow-sm border ${selectedTransactions.includes(tx.id) ? 'border-blue-500 bg-blue-50' : isRejectedByAdmin ? 'bg-red-100 border-red-500 border-l-4 shadow-md' : isUnmarked ? 'bg-orange-50 border-orange-400 border-l-4' : 'bg-white border-gray-100'}`}>
                         <div className="flex items-start gap-3 mb-3">
                             {showSelection && (
                                 <input
@@ -263,7 +346,19 @@ export default function TransactionList({
                             <div className="flex-1 min-w-0 space-y-2">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="text-xs font-medium text-gray-500">ID: <span className="text-gray-900">#{tx.id}</span></div>
-                                    <Badge status={tx.status} />
+                                    <div className="flex items-center gap-2">
+                                        <Badge status={tx.status} />
+                                        {isRejectedByAdmin && (
+                                            <span className="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-full shadow-sm" title="El administrador ha rechazado este pago">
+                                                ❌ Rechazado por Admin
+                                            </span>
+                                        )}
+                                        {isUnmarked && (
+                                            <span className="px-2 py-1 text-xs font-semibold bg-orange-200 text-orange-800 rounded-full" title="Esta transacción fue desmarcada como pagada">
+                                                ⚠️ Desmarcada
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div>
@@ -325,24 +420,72 @@ export default function TransactionList({
 
                                 {showPaymentActions && tx.isPaidByVendor && (
                                     <div className="flex gap-2 mt-3">
-                                        <button
-                                            onClick={() => onEditPayment && onEditPayment(tx)}
-                                            className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200"
-                                        >
-                                            Editar
-                                        </button>
+                                        {!tx.adminVerifiedPayment ? (
+                                            <>
+                                                <button
+                                                    onClick={() => onEditPayment && onEditPayment(tx)}
+                                                    className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200"
+                                                >
+                                                    Editar
+                                                </button>
+                                                <button
+                                                    onClick={() => onUnmarkPaid && onUnmarkPaid(tx.id)}
+                                                    className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200"
+                                                >
+                                                    Desmarcar
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div className="flex-1 px-3 py-2 bg-gray-100 text-gray-500 rounded text-xs font-medium text-center flex items-center justify-center gap-1">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                                Bloqueado por admin
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {showUnmarkButton && tx.isPaidByVendor && (
+                                    <div className="flex justify-center mt-3">
                                         <button
                                             onClick={() => onUnmarkPaid && onUnmarkPaid(tx.id)}
-                                            className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200"
+                                            className="px-3 py-2 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 flex items-center gap-1"
                                         >
-                                            Desmarcar
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                            Revertir pago
                                         </button>
+                                    </div>
+                                )}
+                                {showVerifyButton && tx.isPaidByVendor && (
+                                    <div className="flex justify-center mt-3">
+                                        {tx.adminVerifiedPayment ? (
+                                            <div className="px-3 py-2 bg-green-100 text-green-700 rounded text-xs font-medium flex items-center gap-1">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Verificado
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => onVerifyPayment && onVerifyPayment(tx.id)}
+                                                className="px-3 py-2 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 flex items-center gap-1"
+                                                title="Marcar pago como verificado"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Verificar
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Pagination */}

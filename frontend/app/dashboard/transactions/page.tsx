@@ -798,8 +798,11 @@ export default function TransactionsPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {currentTransactions.map((transaction) => (
-                                        <tr key={transaction.id} className="hover:bg-gray-50">
+                                    {currentTransactions.map((transaction) => {
+                                        // Si es vendedor y la transacción fue desmarcada como pagada (rechazada), mostrar con color distinto
+                                        const isUnmarked = user?.role === 'vendedor' && transaction.status === 'rechazado' && !transaction.isPaidByVendor && transaction.paidByVendorAt === null;
+                                        return (
+                                        <tr key={transaction.id} className={`hover:bg-gray-50 ${isUnmarked ? 'bg-orange-50 border-l-4 border-orange-400' : ''}`}>
                                             <td className="px-4 lg:px-6 py-4 text-gray-900 font-medium text-sm">#{transaction.id}</td>
                                             <td className="px-4 lg:px-6 py-4 text-gray-600 font-medium text-sm">{transaction.createdBy?.name || 'Sistema'}</td>
                                             <td className="px-4 lg:px-6 py-4">
@@ -823,7 +826,14 @@ export default function TransactionsPage() {
                                                     : '-'}
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 text-center">
-                                                <Badge status={transaction.status} />
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Badge status={transaction.status} />
+                                                    {isUnmarked && (
+                                                        <span className="px-2 py-1 text-xs font-semibold bg-orange-200 text-orange-800 rounded-full" title="Esta transacción fue desmarcada como pagada">
+                                                            ⚠️ Desmarcada
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs md:text-sm">
                                                 {new Date(transaction.createdAt).toLocaleString('es-CO')}
@@ -890,15 +900,19 @@ export default function TransactionsPage() {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
 
                         {/* Mobile list view */}
                         <div className="md:hidden space-y-3">
-                            {currentTransactions.map((transaction) => (
-                                <div key={transaction.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                            {currentTransactions.map((transaction) => {
+                                // Si es vendedor y la transacción fue desmarcada como pagada (rechazada), mostrar con color distinto
+                                const isUnmarked = user?.role === 'vendedor' && transaction.status === 'rechazado' && !transaction.isPaidByVendor && transaction.paidByVendorAt === null;
+                                return (
+                                <div key={transaction.id} className={`p-4 rounded-xl shadow-sm border ${isUnmarked ? 'bg-orange-50 border-orange-400 border-l-4' : 'bg-white border-gray-100'}`}>
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <div className="text-sm text-gray-500">#{transaction.id} · {new Date(transaction.createdAt).toLocaleDateString('es-CO')}</div>
@@ -913,7 +927,14 @@ export default function TransactionsPage() {
                                     </div>
 
                                     <div className="mt-3 flex items-center justify-between">
-                                        <div><Badge status={transaction.status} /></div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge status={transaction.status} />
+                                            {isUnmarked && (
+                                                <span className="px-2 py-1 text-xs font-semibold bg-orange-200 text-orange-800 rounded-full" title="Esta transacción fue desmarcada como pagada">
+                                                    ⚠️ Desmarcada
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => handleViewDetails(transaction)}
@@ -975,7 +996,8 @@ export default function TransactionsPage() {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Pagination */}
