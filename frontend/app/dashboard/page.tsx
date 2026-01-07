@@ -52,7 +52,7 @@ export default function DashboardPage() {
                 try {
                     const rate = await ratesService.getCurrentRate();
                     setCurrentRate(rate);
-                    
+
                     // Cargar todas las tasas para la calculadora (disponible para todos los usuarios)
                     const allRatesData = await ratesService.getAllCurrentRates();
                     setAllRates(allRatesData);
@@ -75,7 +75,7 @@ export default function DashboardPage() {
         try {
             const rate = await ratesService.getCurrentRate();
             setCurrentRate(rate);
-            
+
             // Cargar todas las tasas para la calculadora (disponible para todos los usuarios)
             const allRatesData = await ratesService.getAllCurrentRates();
             setAllRates(allRatesData);
@@ -117,8 +117,8 @@ export default function DashboardPage() {
 
                 // Calcular ganancias de hoy con comisión dinámica (usando transactionCommission)
                 // SOLO transacciones normales (excluir PayPal, Zelle, Dólares)
-                const completedToday = transactions.filter(t => 
-                    t.status === 'completado' && 
+                const completedToday = transactions.filter(t =>
+                    t.status === 'completado' &&
                     (!t.transactionType || t.transactionType === 'normal')
                 );
                 const todayEarningsCalc = completedToday.reduce((sum, t) => {
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                                 <div>
                                     <p className="text-blue-100 text-sm mb-1">Tasa de cambio actual</p>
                                     <p className="text-4xl font-bold">
-                                        {parseFloat(currentRate.saleRate.toString()).toFixed(2)}
+                                        {parseFloat((currentRate.saleRate || 0).toString()).toFixed(2)}
                                     </p>
                                     <p className="text-blue-100 text-xs mt-2">
                                         Actualizada: {new Date(currentRate.createdAt).toLocaleString('es-CO')}
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                 {todayEarnings !== null && (
                     <>
                         {user?.role === 'admin_venezuela' && !earningsPassword.isAuthenticated ? (
-                            <Card 
+                            <Card
                                 className="bg-gradient-to-r from-green-600 to-emerald-600 text-white h-full cursor-pointer hover:opacity-90 transition-opacity"
                                 onClick={earningsPassword.openAuthModal}
                             >
@@ -236,11 +236,11 @@ export default function DashboardPage() {
                                             {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                         </p>
                                         <p className="text-green-200 text-xs mt-2 font-medium">
-                                            {user?.role === 'admin_colombia' 
-                                                ? 'Admin Colombia' 
-                                                : user?.role === 'admin_venezuela' 
-                                                ? 'Admin Venezuela' 
-                                                : 'Comisión (5%)'}
+                                            {user?.role === 'admin_colombia'
+                                                ? 'Admin Colombia'
+                                                : user?.role === 'admin_venezuela'
+                                                    ? 'Admin Venezuela'
+                                                    : 'Comisión (5%)'}
                                         </p>
                                     </div>
                                     <svg className="w-20 h-20 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -364,10 +364,10 @@ export default function DashboardPage() {
                                         <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
                                             <div className="text-left sm:text-right">
                                                 <p className="font-bold text-gray-900 text-sm sm:text-base">
-                                                    ${parseFloat(transaction.amountCOP.toString()).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                                    ${parseFloat((transaction.amountCOP || 0).toString()).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
                                                 </p>
                                                 <p className="text-xs sm:text-sm text-blue-600 font-semibold">
-                                                    {parseFloat(transaction.amountBs.toString()).toFixed(2)} Bs
+                                                    {parseFloat((transaction.amountBs || 0).toString()).toFixed(2)} Bs
                                                 </p>
                                             </div>
                                         </div>
@@ -507,16 +507,15 @@ export default function DashboardPage() {
                                                             ${parseFloat((transaction.amountUSD || 0).toString()).toFixed(2)} USD
                                                         </p>
                                                         <div className="flex items-center gap-1 justify-start sm:justify-end mt-0.5">
-                                                            <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${
-                                                                transaction.transactionType === 'dolares' ? 'bg-green-100 text-green-800' :
-                                                                transaction.transactionType === 'paypal' ? 'bg-purple-100 text-purple-800' :
-                                                                'bg-indigo-100 text-indigo-800'
-                                                            }`}>
+                                                            <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${transaction.transactionType === 'dolares' ? 'bg-green-100 text-green-800' :
+                                                                    transaction.transactionType === 'paypal' ? 'bg-purple-100 text-purple-800' :
+                                                                        'bg-indigo-100 text-indigo-800'
+                                                                }`}>
                                                                 {transaction.transactionType.toUpperCase()}
                                                             </span>
                                                         </div>
                                                         <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                                                            {parseFloat(transaction.amountBs.toString()).toFixed(2)} Bs
+                                                            {parseFloat((transaction.amountBs || 0).toString()).toFixed(2)} Bs
                                                         </p>
                                                     </>
                                                 ) : (
@@ -525,7 +524,7 @@ export default function DashboardPage() {
                                                             ${parseFloat((transaction.amountCOP || 0).toString()).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
                                                         </p>
                                                         <p className="text-xs sm:text-sm text-gray-500">
-                                                            {parseFloat(transaction.amountBs.toString()).toFixed(2)} Bs
+                                                            {parseFloat((transaction.amountBs || 0).toString()).toFixed(2)} Bs
                                                         </p>
                                                     </>
                                                 )}
