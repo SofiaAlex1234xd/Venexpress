@@ -78,11 +78,11 @@ export default function NewTransactionPage() {
             setBeneficiaries(beneficiariesData);
             setFilteredBeneficiaries(beneficiariesData);
             setCurrentRate(rate);
-            
+
             // rates ya viene como un objeto Record<RateType, ExchangeRate | null>
             const ratesMap: Record<string, ExchangeRate | null> = {
-                actual: rate,
                 ...rates,
+                actual: rate,
             };
             setAllRates(ratesMap);
             console.log('Rates loaded:', ratesMap); // Debug log
@@ -167,16 +167,16 @@ export default function NewTransactionPage() {
     const handleAmountUSDChange = (value: string) => {
         // Limpiar el valor
         const cleanValue = value.replace(/[^\d.]/g, '');
-        
+
         // Validar que solo tenga un punto decimal
         const parts = cleanValue.split('.');
         if (parts.length > 2) return;
-        
+
         setFormData({ ...formData, amountUSD: cleanValue, amountBs: '' });
-        
+
         if (cleanValue && !isNaN(parseFloat(cleanValue))) {
             const usd = parseFloat(cleanValue);
-            
+
             // Usar tasa personalizada si está activa, sino usar la tasa del tipo de transacción
             let rate = 0;
             if (useCustomRate && customRate) {
@@ -191,7 +191,7 @@ export default function NewTransactionPage() {
                     rate = allRates.zelle?.saleRate || 0;
                 }
             }
-            
+
             if (rate > 0) {
                 // USD × tasa_respectiva = Bs
                 const bs = Math.round(usd * rate);
@@ -455,10 +455,10 @@ export default function NewTransactionPage() {
 
     // Filter clients: show top 3 if no search, otherwise search all
     // Always include the selected client if one is selected
-    const selectedClient = formData.clientPresencialId 
+    const selectedClient = formData.clientPresencialId
         ? clients.find(c => c.id.toString() === formData.clientPresencialId)
         : null;
-    
+
     let baseFilteredClients = clientSearch.trim() === ''
         ? clients.slice(0, 3)
         : clients.filter(client =>
@@ -466,7 +466,7 @@ export default function NewTransactionPage() {
             client.phone.includes(clientSearch) ||
             (client.documentId && client.documentId.includes(clientSearch))
         );
-    
+
     // Always include the selected client at the beginning if it exists and isn't already in the list
     const filteredClients = selectedClient && !baseFilteredClients.some(c => c.id === selectedClient.id)
         ? [selectedClient, ...baseFilteredClients]
@@ -900,11 +900,10 @@ export default function NewTransactionPage() {
                                                     setTransactionType('dolares');
                                                     setFormData({ ...formData, amountCOP: '', amountUSD: '', amountBs: '' });
                                                 }}
-                                                className={`p-3 rounded-lg border-2 transition-all text-sm ${
-                                                    transactionType === 'dolares'
+                                                className={`p-3 rounded-lg border-2 transition-all text-sm ${transactionType === 'dolares'
                                                         ? 'border-green-600 bg-green-50 text-green-900'
                                                         : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="font-semibold">💵 Dólares</div>
                                                 <div className="text-xs text-gray-500 mt-0.5">{allRates.dolares?.saleRate ? Number(allRates.dolares.saleRate).toFixed(2) : '-'}</div>
@@ -915,11 +914,10 @@ export default function NewTransactionPage() {
                                                     setTransactionType('paypal');
                                                     setFormData({ ...formData, amountCOP: '', amountUSD: '', amountBs: '' });
                                                 }}
-                                                className={`p-3 rounded-lg border-2 transition-all text-sm ${
-                                                    transactionType === 'paypal'
+                                                className={`p-3 rounded-lg border-2 transition-all text-sm ${transactionType === 'paypal'
                                                         ? 'border-purple-600 bg-purple-50 text-purple-900'
                                                         : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="font-semibold">💳 PayPal</div>
                                                 <div className="text-xs text-gray-500 mt-0.5">{allRates.paypal?.saleRate ? Number(allRates.paypal.saleRate).toFixed(2) : '-'}</div>
@@ -930,11 +928,10 @@ export default function NewTransactionPage() {
                                                     setTransactionType('zelle');
                                                     setFormData({ ...formData, amountCOP: '', amountUSD: '', amountBs: '' });
                                                 }}
-                                                className={`p-3 rounded-lg border-2 transition-all text-sm ${
-                                                    transactionType === 'zelle'
+                                                className={`p-3 rounded-lg border-2 transition-all text-sm ${transactionType === 'zelle'
                                                         ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
                                                         : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="font-semibold">💰 Zelle</div>
                                                 <div className="text-xs text-gray-500 mt-0.5">{allRates.zelle?.saleRate ? Number(allRates.zelle.saleRate).toFixed(2) : '-'}</div>
@@ -1003,7 +1000,7 @@ export default function NewTransactionPage() {
                                                     onChange={(e) => {
                                                         const value = e.target.value.replace(/\D/g, '');
                                                         setFormData({ ...formData, amountBs: value, amountUSD: '' });
-                                                        
+
                                                         if (value) {
                                                             // Usar tasa personalizada si está activa, sino usar la tasa del tipo de transacción
                                                             let rate: number;
@@ -1013,7 +1010,7 @@ export default function NewTransactionPage() {
                                                                 const rateKey = transactionType;
                                                                 rate = allRates[rateKey]?.saleRate || 0;
                                                             }
-                                                            
+
                                                             if (rate) {
                                                                 const bs = parseFloat(value);
                                                                 const usd = (bs / rate).toFixed(2);
@@ -1031,65 +1028,63 @@ export default function NewTransactionPage() {
                                     )}
                                 </div>
 
-                                {((transactionType === 'normal' && formData.amountCOP && formData.amountBs) || 
-                                  (transactionType !== 'normal' && formData.amountUSD && formData.amountBs)) && (
-                                    <div className={`mt-4 p-4 border rounded-lg ${
-                                        transactionType === 'normal' 
-                                            ? (useCustomRate ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200')
-                                            : transactionType === 'dolares'
-                                            ? 'bg-green-50 border-green-200'
-                                            : transactionType === 'paypal'
-                                            ? 'bg-purple-50 border-purple-200'
-                                            : 'bg-indigo-50 border-indigo-200'
-                                    }`}>
-                                        <div className="space-y-2">
-                                            {transactionType === 'normal' ? (
-                                                <>
-                                                    <p className={`text-sm ${useCustomRate ? 'text-green-900' : 'text-blue-900'}`}>
-                                                        <span className="font-semibold">Conversión:</span> ${formData.amountCOP} COP = {parseInt(formData.amountBs).toLocaleString('es-CO')} Bs
-                                                        <span className={`ml-2 ${useCustomRate ? 'text-green-700' : 'text-blue-700'}`}>
-                                                            (Tasa {useCustomRate ? 'personalizada' : 'oficial'}: {Number(getActiveRate()).toFixed(2)})
-                                                        </span>
-                                                    </p>
-                                                    {formData.amountBs && allRates.banco_central?.saleRate && (
-                                                        <p className="text-xs text-gray-600">
-                                                            💵 Equivalente aprox: ${(parseFloat(formData.amountBs) / Number(allRates.banco_central.saleRate)).toFixed(2)} USD
+                                {((transactionType === 'normal' && formData.amountCOP && formData.amountBs) ||
+                                    (transactionType !== 'normal' && formData.amountUSD && formData.amountBs)) && (
+                                        <div className={`mt-4 p-4 border rounded-lg ${transactionType === 'normal'
+                                                ? (useCustomRate ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200')
+                                                : transactionType === 'dolares'
+                                                    ? 'bg-green-50 border-green-200'
+                                                    : transactionType === 'paypal'
+                                                        ? 'bg-purple-50 border-purple-200'
+                                                        : 'bg-indigo-50 border-indigo-200'
+                                            }`}>
+                                            <div className="space-y-2">
+                                                {transactionType === 'normal' ? (
+                                                    <>
+                                                        <p className={`text-sm ${useCustomRate ? 'text-green-900' : 'text-blue-900'}`}>
+                                                            <span className="font-semibold">Conversión:</span> ${formData.amountCOP} COP = {parseInt(formData.amountBs).toLocaleString('es-CO')} Bs
+                                                            <span className={`ml-2 ${useCustomRate ? 'text-green-700' : 'text-blue-700'}`}>
+                                                                (Tasa {useCustomRate ? 'personalizada' : 'oficial'}: {Number(getActiveRate()).toFixed(2)})
+                                                            </span>
                                                         </p>
-                                                    )}
-                                                    {useCustomRate && (
-                                                        <p className="text-xs text-green-700">
-                                                            ⚠️ Esta transacción usará una tasa personalizada consultada con el administrador
-                                                        </p>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <p className={`text-sm ${
-                                                        transactionType === 'dolares' ? 'text-green-900' : 
-                                                        transactionType === 'paypal' ? 'text-purple-900' : 'text-indigo-900'
-                                                    }`}>
-                                                        <span className="font-semibold">Conversión:</span> ${formData.amountUSD} USD = {parseInt(formData.amountBs).toLocaleString('es-CO')} Bs
-                                                    </p>
-                                                    <p className={`text-xs ${useCustomRate ? 'text-green-700' : 'text-gray-600'}`}>
-                                                        Tasa {useCustomRate ? 'personalizada' : (transactionType === 'dolares' ? 'Dólares' : transactionType === 'paypal' ? 'PayPal' : 'Zelle')}: {useCustomRate ? Number(customRate).toFixed(2) : (
-                                                            (() => {
-                                                                const rate = transactionType === 'dolares' ? allRates.dolares?.saleRate : 
-                                                                             transactionType === 'paypal' ? allRates.paypal?.saleRate : 
-                                                                             allRates.zelle?.saleRate;
-                                                                return rate ? Number(rate).toFixed(2) : '-';
-                                                            })()
+                                                        {formData.amountBs && allRates.banco_central?.saleRate && (
+                                                            <p className="text-xs text-gray-600">
+                                                                💵 Equivalente aprox: ${(parseFloat(formData.amountBs) / Number(allRates.banco_central.saleRate)).toFixed(2)} USD
+                                                            </p>
                                                         )}
-                                                    </p>
-                                                    {useCustomRate && (
-                                                        <p className="text-xs text-green-700">
-                                                            ✓ Usando tasa personalizada para esta transacción USD
+                                                        {useCustomRate && (
+                                                            <p className="text-xs text-green-700">
+                                                                ⚠️ Esta transacción usará una tasa personalizada consultada con el administrador
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className={`text-sm ${transactionType === 'dolares' ? 'text-green-900' :
+                                                                transactionType === 'paypal' ? 'text-purple-900' : 'text-indigo-900'
+                                                            }`}>
+                                                            <span className="font-semibold">Conversión:</span> ${formData.amountUSD} USD = {parseInt(formData.amountBs).toLocaleString('es-CO')} Bs
                                                         </p>
-                                                    )}
-                                                </>
-                                            )}
+                                                        <p className={`text-xs ${useCustomRate ? 'text-green-700' : 'text-gray-600'}`}>
+                                                            Tasa {useCustomRate ? 'personalizada' : (transactionType === 'dolares' ? 'Dólares' : transactionType === 'paypal' ? 'PayPal' : 'Zelle')}: {useCustomRate ? Number(customRate).toFixed(2) : (
+                                                                (() => {
+                                                                    const rate = transactionType === 'dolares' ? allRates.dolares?.saleRate :
+                                                                        transactionType === 'paypal' ? allRates.paypal?.saleRate :
+                                                                            allRates.zelle?.saleRate;
+                                                                    return rate ? Number(rate).toFixed(2) : '-';
+                                                                })()
+                                                            )}
+                                                        </p>
+                                                        {useCustomRate && (
+                                                            <p className="text-xs text-green-700">
+                                                                ✓ Usando tasa personalizada para esta transacción USD
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
                             </Card>
 
                             <Card className="mb-6">
@@ -1114,7 +1109,7 @@ export default function NewTransactionPage() {
                                             <p className="text-sm text-gray-600 mb-4">
                                                 Adjunta el comprobante de pago que recibiste del cliente. Si lo adjuntas, la transferencia se marcará como pagada y no aumentará tu deuda. Si no lo adjuntas, deberás esta transferencia y aparecerá en tu panel de deudas. Este será visible para el administrador de Venezuela.
                                             </p>
-                                            
+
                                             <input
                                                 type="file"
                                                 accept="image/*,.pdf"
@@ -1122,7 +1117,7 @@ export default function NewTransactionPage() {
                                                 className="hidden"
                                                 id="paymentProofInput"
                                             />
-                                            
+
                                             {!paymentProof ? (
                                                 <label
                                                     htmlFor="paymentProofInput"
@@ -1165,7 +1160,7 @@ export default function NewTransactionPage() {
                                                     </div>
                                                 </div>
                                             )}
-                                            
+
                                             {errors.paymentProof && (
                                                 <p className="mt-2 text-sm text-red-600">{errors.paymentProof}</p>
                                             )}
@@ -1288,9 +1283,9 @@ export default function NewTransactionPage() {
                             <p className="text-sm text-gray-600">
                                 Tasa oficial {transactionType === 'dolares' ? 'Dólares' : transactionType === 'paypal' ? 'PayPal' : 'Zelle'}: <span className="font-bold text-gray-900">
                                     {(() => {
-                                        const rate = transactionType === 'dolares' ? allRates.dolares?.saleRate : 
-                                                     transactionType === 'paypal' ? allRates.paypal?.saleRate : 
-                                                     allRates.zelle?.saleRate;
+                                        const rate = transactionType === 'dolares' ? allRates.dolares?.saleRate :
+                                            transactionType === 'paypal' ? allRates.paypal?.saleRate :
+                                                allRates.zelle?.saleRate;
                                         return rate ? Number(rate).toFixed(2) : '-';
                                     })()} Bs/USD
                                 </span>
