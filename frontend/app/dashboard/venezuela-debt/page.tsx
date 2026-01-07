@@ -78,7 +78,7 @@ export default function VenezuelaDebtPage() {
   }>({
     isOpen: false,
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   useEffect(() => {
@@ -156,7 +156,7 @@ export default function VenezuelaDebtPage() {
 
   const handleSubmitFullPayment = async () => {
     if (!debtSummary) return;
-    
+
     const unpaidTransactionIds = debtSummary.transactionDetails
       .filter(tx => !tx.isPaidToVenezuela)
       .map(tx => tx.id);
@@ -177,7 +177,7 @@ export default function VenezuelaDebtPage() {
         try {
           setSubmitting(true);
           await transactionsService.markTransactionsAsPaidToVenezuela(unpaidTransactionIds);
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} });
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
           setIsFullPaymentModalOpen(false);
           setPaymentProof(null);
           setPaymentProofPreview('');
@@ -189,7 +189,7 @@ export default function VenezuelaDebtPage() {
           await loadDebtDetail();
         } catch (error: any) {
           console.error('Error marking transactions as paid:', error);
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} });
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
           setAlertState({
             isOpen: true,
             message: error.response?.data?.message || 'Error al marcar las transacciones como pagadas',
@@ -204,7 +204,7 @@ export default function VenezuelaDebtPage() {
 
   const handleSubmitPartialPayment = async () => {
     if (!debtSummary) return;
-    
+
     if (selectedTransactionsForPartial.size === 0) {
       setAlertState({
         isOpen: true,
@@ -225,7 +225,7 @@ export default function VenezuelaDebtPage() {
         try {
           setSubmitting(true);
           await transactionsService.markTransactionsAsPaidToVenezuela(selectedIds);
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} });
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
           setIsPartialPaymentModalOpen(false);
           setSelectedTransactionsForPartial(new Set());
           setPaymentProof(null);
@@ -238,7 +238,7 @@ export default function VenezuelaDebtPage() {
           await loadDebtDetail();
         } catch (error: any) {
           console.error('Error marking transactions as paid:', error);
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} });
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
           setAlertState({
             isOpen: true,
             message: error.response?.data?.message || 'Error al marcar las transacciones como pagadas',
@@ -258,7 +258,7 @@ export default function VenezuelaDebtPage() {
       onConfirm: async () => {
         try {
           await transactionsService.deleteVenezuelaPayment(paymentId);
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} });
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
           setAlertState({
             isOpen: true,
             message: 'Pago eliminado exitosamente',
@@ -267,12 +267,42 @@ export default function VenezuelaDebtPage() {
           await loadDebtDetail();
         } catch (error) {
           console.error('Error deleting payment:', error);
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} });
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
           setAlertState({
             isOpen: true,
             message: 'Error al eliminar el pago',
             variant: 'error',
           });
+        }
+      },
+    });
+  };
+
+  const handleMarkAsUnpaid = async (transactionIds: number[]) => {
+    setConfirmState({
+      isOpen: true,
+      message: `¿Estás seguro de desmarcar ${transactionIds.length} transacción(es) como pagada(s)? Volverán a sumar a la deuda pendiente.`,
+      onConfirm: async () => {
+        try {
+          setSubmitting(true);
+          await transactionsService.markTransactionsAsUnpaidToVenezuela(transactionIds);
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
+          setAlertState({
+            isOpen: true,
+            message: 'Transacción(es) desmarcada(s) exitosamente',
+            variant: 'success',
+          });
+          await loadDebtDetail();
+        } catch (error: any) {
+          console.error('Error unmarking transactions:', error);
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } });
+          setAlertState({
+            isOpen: true,
+            message: error.response?.data?.message || 'Error al desmarcar las transacciones',
+            variant: 'error',
+          });
+        } finally {
+          setSubmitting(false);
         }
       },
     });
@@ -524,65 +554,65 @@ export default function VenezuelaDebtPage() {
                     {debtSummary.transactionDetails.map((tx) => {
                       const isPaid = tx.isPaidToVenezuela || false;
                       return (
-                      <tr 
-                        key={tx.id} 
-                        className={`hover:bg-gray-50 ${isPaid ? 'bg-green-50' : ''}`}
-                      >
-                        <td className="px-3 py-2">
-                          {isPaid ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✓ Pagada
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                              Pendiente
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-gray-600">
-                          {formatDate(tx.createdAt)}
-                        </td>
-                        <td className="px-3 py-2 text-gray-900">
-                          {tx.beneficiaryFullName}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-gray-900">
-                          {formatCOP(tx.amountCOP)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-gray-900">
-                          {tx.amountBs.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-gray-600">
-                          {tx.saleRate.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-gray-600">
-                          {tx.purchaseRate.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-blue-600 font-medium">
-                          {formatCOP(tx.inversion)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-green-600 font-medium">
-                          {formatCOP(tx.gananciaSistema)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right text-purple-600 font-medium">
-                          {formatCOP(tx.gananciaAdminVenezuela)}
-                        </td>
-                        <td className={`px-3 py-2 whitespace-nowrap text-right font-bold ${isPaid ? 'text-green-700 bg-green-50' : 'text-amber-700 bg-amber-50'}`}>
-                          {formatCOP(tx.deudaConVenezuela)}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          {isPaid && tx.paidToVenezuelaAt && (
-                            <button
-                              onClick={() => handleMarkAsUnpaid([tx.id])}
-                              disabled={processing}
-                              className="text-xs text-red-600 hover:text-red-800 hover:underline"
-                              title="Desmarcar como pagada"
-                            >
-                              Desmarcar
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
+                        <tr
+                          key={tx.id}
+                          className={`hover:bg-gray-50 ${isPaid ? 'bg-green-50' : ''}`}
+                        >
+                          <td className="px-3 py-2">
+                            {isPaid ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Pagada
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                Pendiente
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                            {formatDate(tx.createdAt)}
+                          </td>
+                          <td className="px-3 py-2 text-gray-900">
+                            {tx.beneficiaryFullName}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-gray-900">
+                            {formatCOP(tx.amountCOP)}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-gray-900">
+                            {tx.amountBs.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-gray-600">
+                            {tx.saleRate.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-gray-600">
+                            {tx.purchaseRate.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-blue-600 font-medium">
+                            {formatCOP(tx.inversion)}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-green-600 font-medium">
+                            {formatCOP(tx.gananciaSistema)}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-purple-600 font-medium">
+                            {formatCOP(tx.gananciaAdminVenezuela)}
+                          </td>
+                          <td className={`px-3 py-2 whitespace-nowrap text-right font-bold ${isPaid ? 'text-green-700 bg-green-50' : 'text-amber-700 bg-amber-50'}`}>
+                            {formatCOP(tx.deudaConVenezuela)}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {isPaid && tx.paidToVenezuelaAt && (
+                              <button
+                                onClick={() => handleMarkAsUnpaid([tx.id])}
+                                disabled={processing}
+                                className="text-xs text-red-600 hover:text-red-800 hover:underline"
+                                title="Desmarcar como pagada"
+                              >
+                                Desmarcar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
                     })}
                   </tbody>
                   <tfoot className="bg-gray-100 border-t-2 border-gray-300">
@@ -650,7 +680,7 @@ export default function VenezuelaDebtPage() {
                 </span>
               )}
             </div>
-            
+
             {debtSummary.payments.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
                 <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -887,7 +917,7 @@ export default function VenezuelaDebtPage() {
           {debtSummary && selectedTransactionsForPartial.size > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-900">
-                <strong>{selectedTransactionsForPartial.size}</strong> transacción(es) seleccionada(s). 
+                <strong>{selectedTransactionsForPartial.size}</strong> transacción(es) seleccionada(s).
                 Total: <strong>{formatCOP(
                   debtSummary.transactionDetails
                     .filter(tx => selectedTransactionsForPartial.has(tx.id))
@@ -904,8 +934,8 @@ export default function VenezuelaDebtPage() {
                   <th className="px-3 py-2 text-center w-12">
                     <input
                       type="checkbox"
-                      checked={debtSummary && debtSummary.transactionDetails.filter(tx => !tx.isPaidToVenezuela).length > 0 && 
-                               debtSummary.transactionDetails.filter(tx => !tx.isPaidToVenezuela).every(tx => selectedTransactionsForPartial.has(tx.id))}
+                      checked={debtSummary && debtSummary.transactionDetails.filter(tx => !tx.isPaidToVenezuela).length > 0 &&
+                        debtSummary.transactionDetails.filter(tx => !tx.isPaidToVenezuela).every(tx => selectedTransactionsForPartial.has(tx.id))}
                       onChange={(e) => {
                         if (e.target.checked) {
                           handleSelectAllForPartial();
@@ -929,8 +959,8 @@ export default function VenezuelaDebtPage() {
                   .map((tx) => {
                     const isSelected = selectedTransactionsForPartial.has(tx.id);
                     return (
-                      <tr 
-                        key={tx.id} 
+                      <tr
+                        key={tx.id}
                         className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}
                       >
                         <td className="px-3 py-2 text-center">
@@ -1028,7 +1058,7 @@ export default function VenezuelaDebtPage() {
         variant="warning"
         onConfirm={confirmState.onConfirm}
         onCancel={() =>
-          setConfirmState({ isOpen: false, message: '', onConfirm: () => {} })
+          setConfirmState({ isOpen: false, message: '', onConfirm: () => { } })
         }
       />
     </div>
